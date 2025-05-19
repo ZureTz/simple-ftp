@@ -3,8 +3,6 @@
 #include "ftp_server.h"
 #include "ftp_client.h"
 
-extern struct sigaction sig_int_handler;
-
 #ifdef FTP_SERVER
 
 // Server side

@@ -8,7 +8,7 @@
 #include "ftp_client.h"
 #include "sighandler.h"
 
-// ftp client pointer
+// ftp client pointer for the signal handler
 ftp::client *ftp_client = nullptr;
 
 int main(int argc, char const *argv[]) {
@@ -41,10 +41,9 @@ int main(int argc, char const *argv[]) {
   ftp_client = &client;
   // Init signal handler
   init_sigint_handler_client();
+
   // Connect to the server
   client.connect();
-  // Run the client from stdin
-  client.run_echo_from_stdin();
 
   return 0;
 }

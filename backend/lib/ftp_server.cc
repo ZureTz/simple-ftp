@@ -1,16 +1,17 @@
 #include <memory>
 #include <thread>
+#include <unistd.h>
 
-#include "ftp.h"
 #include "ftp_server.h"
+#include "utils/ftp.h"
 
 // Constructor
-ftp::server::server(int16_t port) {
+ftp::server::server(int16_t command_port) {
   // Initialize sockpp
   sockpp::initialize();
 
   // Port number
-  port_ = port;
+  command_port_ = command_port;
 
   // Set running to false
   running_ = false;
@@ -25,7 +26,7 @@ ftp::server::~server() {
 // Start the server
 void ftp::server::start() {
   // Create a TCP acceptor
-  const bool err = acceptor_.open(sockpp::inet_address(port_));
+  const bool err = acceptor_.open(sockpp::inet_address(command_port_));
   if (!err) {
     std::cerr << "Error: " << acceptor_.last_error_str() << std::endl;
     return;
@@ -33,7 +34,7 @@ void ftp::server::start() {
 
   // Start the server
   running_ = true;
-  std::clog << "Server started on port " << port_ << std::endl;
+  std::clog << "Server started on command port " << command_port_ << std::endl;
 
   // Accept a new client connection
   while (running_) {
@@ -46,9 +47,9 @@ void ftp::server::start() {
     std::clog << "Accepted connection from " << sock.peer_address().to_string()
               << std::endl;
 
-    // Create a thread and transfer the new stream to it.
-    std::thread thr(&ftp::server::run_echo, this, std::move(sock));
-    thr.detach();
+    // After command port connection, we need use protocol interpreter
+    std::thread thr(&ftp::server::protocol_interpreter, this, std::move(sock));
+    thr.detach(); // Detach the thread to allow it to run independently
   }
 }
 
@@ -63,11 +64,31 @@ void ftp::server::stop() {
 }
 
 void ftp::server::run_echo(sockpp::tcp_socket sock) {
-  std::shared_ptr<char> buf(new char[BufferSize],
+  std::shared_ptr<char> buf(new char[buffer_size],
+                            std::default_delete<char[]>());
+  ssize_t n;
+  while ((n = sock.read(buf.get(), buffer_size)) > 0) {
+    // Log the received data
+    std::clog << "Received " << n << " bytes from "
+              << sock.peer_address().to_string() << ": ";
+    for (ssize_t i = 0; i < n; ++i) {
+      std::clog << buf.get()[i];
+    }
+    std::clog << std::endl;
+    // Echo the data back to the client
+    sock.write(buf.get(), n);
+  }
+
+  std::clog << "Connection closed from " << sock.peer_address() << std::endl;
+}
+
+// Protocol interpreter
+void ftp::server::protocol_interpreter(sockpp::tcp_socket sock) {
+  std::shared_ptr<char> buf(new char[buffer_size],
                             std::default_delete<char[]>());
   ssize_t n;
 
-  while ((n = sock.read(buf.get(), BufferSize)) > 0) {
+  while ((n = sock.read(buf.get(), buffer_size)) > 0) {
     // Log the received data
     std::clog << "Received " << n << " bytes from "
               << sock.peer_address().to_string() << ": ";

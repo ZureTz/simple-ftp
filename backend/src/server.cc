@@ -1,14 +1,9 @@
 // Simple echo server using sockpp
 
-#include <cstddef>
-#include <cstdint>
 #include <iostream>
-#include <memory>
-#include <thread>
 
 #include <argparse/argparse.hpp>
 
-#include "ftp.h"
 #include "ftp_server.h"
 #include "sighandler.h"
 
