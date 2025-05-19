@@ -1,3 +1,5 @@
+// Simple echo server using sockpp
+
 #include <cstddef>
 #include <cstdint>
 #include <iostream>
@@ -34,11 +36,11 @@ int main(int argc, char const *argv[]) {
 
   // Init server
   ftp::server server(port);
-  
+
   // Pass the server to the signal handler
   ftp_server = &server;
   // Init signal handler
-  init_sigint_handler();
+  init_sigint_handler_server();
 
   // Start the server
   server.start();

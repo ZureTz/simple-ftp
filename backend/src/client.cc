@@ -1,8 +1,15 @@
 // Simple echo client using sockpp
 
+#include <string>
+
 #include <argparse/argparse.hpp>
 #include <sockpp/tcp_connector.h>
-#include <string>
+
+#include "ftp_client.h"
+#include "sighandler.h"
+
+// ftp client pointer
+ftp::client *ftp_client = nullptr;
 
 int main(int argc, char const *argv[]) {
   // Init argparse
@@ -29,43 +36,15 @@ int main(int argc, char const *argv[]) {
   const std::string host = program.get<std::string>("--host");
   std::clog << "Connecting to " << host << ":" << port << std::endl;
 
-  // Init sockpp
-  sockpp::initialize();
-
-  // Init tcp connector using sockpp
-  sockpp::tcp_connector connector;
-
-  if (!connector.connect(sockpp::inet_address(host, port))) {
-    std::cerr << "Error: " << connector.last_error_str() << std::endl;
-    return 1;
-  }
-
-  std::clog << "Connected to " << connector.peer_address().to_string()
-            << std::endl;
-
-  std::string input;
-  while (std::getline(std::cin, input) && input != "exit") {
-    // Check if the input contains only whitespace
-    if (input.find_first_not_of(" \t\n") == std::string::npos) {
-      continue; // Skip empty input
-    }
-
-    // Send the input to the server
-    connector.write(input.c_str(), input.size());
-    // Read the response from the server
-    char buf[1024];
-    ssize_t n = connector.read(buf, sizeof(buf));
-    if (n > 0) {
-      std::cout.write(buf, n);
-      std::cout << std::endl;
-    } else {
-      std::cerr << "Error: " << connector.last_error_str() << std::endl;
-      break;
-    }
-  }
-
-  // Close the connection
-  connector.close();
+  // Init client
+  ftp::client client(host, port);
+  ftp_client = &client;
+  // Init signal handler
+  init_sigint_handler_client();
+  // Connect to the server
+  client.connect();
+  // Run the client from stdin
+  client.run_echo_from_stdin();
 
   return 0;
 }
