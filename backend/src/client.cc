@@ -40,10 +40,16 @@ int main(int argc, char const *argv[]) {
     return 1;
   }
 
-  std::clog << "Connected to " << connector.peer_address().to_string() << std::endl;
+  std::clog << "Connected to " << connector.peer_address().to_string()
+            << std::endl;
 
   std::string input;
   while (std::getline(std::cin, input) && input != "exit") {
+    // Check if the input contains only whitespace
+    if (input.find_first_not_of(" \t\n") == std::string::npos) {
+      continue; // Skip empty input
+    }
+
     // Send the input to the server
     connector.write(input.c_str(), input.size());
     // Read the response from the server
