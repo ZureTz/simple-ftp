@@ -1,7 +1,6 @@
 #include "ftp_client.h"
 #include "utils/ftp.h"
 
-#include <memory>
 #include <sockpp/tcp_connector.h>
 
 // Constructor
