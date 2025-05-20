@@ -1,13 +1,12 @@
 #pragma once
 
 #include <atomic>
-#include <cstdint>
 #include <cstdlib>
+#include <filesystem>
 #include <string>
 
 #include <sockpp/tcp_connector.h>
 #include <sockpp/tcp_socket.h>
-#include <vector>
 
 namespace ftp {
 
@@ -33,8 +32,6 @@ private:
   //      | File transfer done
   //    loop until the user quits
 
-  // Bool variables to check the state of the client
-  bool is_logged_in = false;
   // Default to passive mode (client may be behind a NAT)
   bool is_passive_mode = true;
 
@@ -77,8 +74,6 @@ private:
 
   // Help command, runs locally without server
   void do_help();
-  // Quit command, disconnect from the server
-  void do_quit();
 
   // send_file() and recv_file() are used to send and receive files over a
   // socket.
@@ -91,14 +86,14 @@ private:
 class protocol_interpreter_server {
 public:
   protocol_interpreter_server(sockpp::tcp_socket sock);
-  ~protocol_interpreter_server();
+  ~protocol_interpreter_server() = default;
 
   void run();
   void stop();
 
 private:
   sockpp::tcp_socket sock_;
-  std::atomic<bool> running_ = false;
+  std::atomic<bool> running_;
 
   // States of the protocol interpreter
   // 0: Not logged in
@@ -111,15 +106,14 @@ private:
   //    loop until the user quits
 
   // Current working directory
-  std::vector<std::string> current_working_directory_;
+  std::filesystem::path current_working_directory_;
 
   // Bool variables to check the state of the server
-  bool is_logged_in = false;
-  const std::string username_;
-  const std::string password_;
-  // Default to passive mode (client may be behind a NAT)
-  bool is_passive_mode = true;
-  int16_t client_port_in_active_mode;
+  bool is_logged_in;
+  std::string username_;
+  std::string password_;
+  // Default to passive mode true (client may be behind a NAT)
+  bool is_passive_mode;
 
   // Check username and password
   void do_user(std::string username);

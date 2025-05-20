@@ -1,5 +1,7 @@
 #include <algorithm>
 #include <cstddef>
+#include <iostream>
+#include <regex>
 #include <string>
 #include <utility>
 #include <vector>
@@ -29,9 +31,8 @@ std::pair<ftp::operation, std::string> ftp::parse_command(std::string command) {
   };
 
   // Remove leading and trailing whitespace
-  auto it = std::remove_if(command.begin(), command.end(),
-                           [](unsigned char c) { return std::isspace(c); });
-  command.erase(it, command.end());
+  command = std::regex_replace(command, std::regex("^ +"), "");
+  command = std::regex_replace(command, std::regex(" +$"), "");
 
   // Separate the command and the argument by space
   std::vector<std::string> tokens;
@@ -45,6 +46,13 @@ std::pair<ftp::operation, std::string> ftp::parse_command(std::string command) {
   std::transform(tokens[0].begin(), tokens[0].end(), tokens[0].begin(),
                  [](unsigned char c) { return std::tolower(c); });
   // Check the command and return the corresponding operation
+  // Log the command
+  std::clog << "[Parser] Parsed command: " ;
+  for (const auto &token : tokens) {
+    std::clog << token << " ";
+  }
+  std::clog << std::endl;
+
   // user <username>
   if (tokens[0] == "user" && tokens.size() == 2) {
     return {ftp::USER, tokens[1]};
@@ -103,15 +111,15 @@ std::pair<ftp::operation, std::string> ftp::parse_command(std::string command) {
     return {ftp::DELE, tokens[1]};
   }
   // rnfr <oldname>
-  if ((tokens[0] == "rnfr") && tokens.size() == 2) {
+  if (tokens[0] == "rnfr"&& tokens.size() == 2) {
     return {ftp::RNFR, tokens[1]};
   }
   // rnto <newname>
-  if ((tokens[0] == "rnto") && tokens.size() == 2) {
+  if (tokens[0] == "rnto" && tokens.size() == 2) {
     return {ftp::RNTO, tokens[1]};
   }
   // help
-  if (tokens[0] == "help" || tokens[0] == "?" && tokens.size() == 1) {
+  if ((tokens[0] == "help" || tokens[0] == "?") && tokens.size() == 1) {
     return {ftp::HELP, ""};
   }
   // noop (invalid command)

@@ -30,7 +30,7 @@ int main(int argc, char const *argv[]) {
   sockpp::initialize();
 
   const int16_t port = program.get<int>("--port");
-  std::clog << "Listening on port " << port << std::endl;
+  std::clog << "[Main] " << "Listening on port " << port << std::endl;
 
   // Init server
   ftp::server server(port);
