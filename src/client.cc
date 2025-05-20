@@ -32,6 +32,9 @@ int main(int argc, char const *argv[]) {
     return 1;
   }
 
+  // Initialize sockpp
+  sockpp::initialize();
+
   const int16_t port = program.get<int>("--port");
   const std::string host = program.get<std::string>("--host");
   std::clog << "Connecting to " << host << ":" << port << std::endl;

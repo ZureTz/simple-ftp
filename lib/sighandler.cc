@@ -21,6 +21,7 @@ void init_sigint_handler_server() {
 void sigint_handler_server(int s) {
   std::clog << "\rCaught signal " << s << std::endl;
 
+  // Stop the server
   ftp_server->stop();
 
   exit(1);

@@ -26,6 +26,9 @@ int main(int argc, char const *argv[]) {
     return 1;
   }
 
+  // Initialize sockpp
+  sockpp::initialize();
+
   const int16_t port = program.get<int>("--port");
   std::clog << "Listening on port " << port << std::endl;
 

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <utility>
 
 constexpr int buffer_size = 1024;
 
@@ -21,11 +22,12 @@ enum operation {
   MKD,      // Make directory (mkdir <dir>)
   RMD,      // Remove directory (rmdir <dir>)
   DELE,     // Delete
-  RNFR,     // Rename from
-  RNTO,     // Rename to
+  RNFR,     // Rename from (rnfr <old>)
+  RNTO,     // Rename to (rnto <new>)
   HELP,     // Help (Print all commands and their description)
+  NOOP,     // No operation
 };
 
 // Parse the command and return the operation
-enum operation parse_command(const std::string &command);
+std::pair<operation, std::string> parse_command(std::string command);
 } // namespace ftp

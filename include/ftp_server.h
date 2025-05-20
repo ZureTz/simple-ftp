@@ -5,6 +5,8 @@
 
 #include <sockpp/tcp_acceptor.h>
 
+#include "proto_interpreter.h"
+
 namespace ftp {
 
 class server {
@@ -17,16 +19,14 @@ public:
 
 private:
   void run_echo(sockpp::tcp_socket sock);
-  // Todo: add a function to handle the FTP commands
-  void protocol_interpreter(sockpp::tcp_socket sock);
 
   int16_t command_port_; // Command port (always be used)
 
-  int16_t server_data_port_; // Data port (listening when passive mode)
-  int16_t client_data_port_; // Data port (listening when active mode)
-
   sockpp::tcp_acceptor acceptor_;
   std::atomic<bool> running_;
+
+  // Instances of protocol interpreter
+  std::vector<protocol_interpreter_server *> interpreters_;
 
   // Todo: implement the FTP commands
   void do_retr();
@@ -47,4 +47,5 @@ private:
   void do_port();
   void do_pasv();
 };
+
 } // namespace ftp
