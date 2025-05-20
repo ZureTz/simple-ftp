@@ -5,7 +5,7 @@
 
 #include <sockpp/tcp_acceptor.h>
 
-#include "proto_interpreter.h"
+#include "proto/proto_interpreter.h"
 
 namespace ftp {
 

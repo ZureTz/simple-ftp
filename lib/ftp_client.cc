@@ -24,16 +24,18 @@ void ftp::client::connect() {
   // Connect to the server
   if (!connector_.connect(
           sockpp::inet_address(server_host_, server_command_port_))) {
-    std::cerr<< "[Client] " << "Error: " << connector_.last_error_str() << std::endl;
+    std::cerr << "[Client] " << "Error: " << connector_.last_error_str()
+              << std::endl;
     return;
   }
 
   // Set connected to true
   connected_ = true;
 
-  std::clog<< "[Client] " << "Connected to " << connector_.peer_address().to_string()
+  std::clog << "[Client] " << "Connected to "
+            << connector_.peer_address().to_string() << std::endl;
+  std::clog << "[Client] " << "Source port: " << connector_.address().port()
             << std::endl;
-  std::clog<< "[Client] " << "Source port: " << connector_.address().port() << std::endl;
 
   // Run the protocol interpreter
   protocol_interpreter_ = new protocol_interpreter_client(&connector_);
@@ -44,8 +46,8 @@ void ftp::client::connect() {
 
 // Disconnect from the server
 void ftp::client::disconnect() {
-  std::clog<< "[Client] " << "Disconnecting from " << connector_.peer_address().to_string()
-            << "..." << std::endl;
+  std::clog << "[Client] " << "Disconnecting from "
+            << connector_.peer_address().to_string() << "..." << std::endl;
 
   // Delete the protocol interpreter
   if (protocol_interpreter_) {

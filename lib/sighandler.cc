@@ -19,7 +19,7 @@ void init_sigint_handler_server() {
 }
 
 void sigint_handler_server(int s) {
-  std::clog << "\rCaught signal " << s << std::endl;
+  std::clog << "\r[Signal] Caught signal " << s << std::endl;
 
   // Stop the server
   ftp_server->stop();
@@ -40,7 +40,7 @@ void init_sigint_handler_client() {
 }
 
 void sigint_handler_client(int s) {
-  std::clog << "\rCaught signal " << s << std::endl;
+  std::clog << "\r[Signal] Caught signal " << s << std::endl;
 
   ftp_client->disconnect();
 
