@@ -161,8 +161,6 @@ void ftp::protocol_interpreter_client::do_pass(std::string password) {
 
   // Wait for response from the server
   ftp::receive(connector_, buf_, buffer_size);
-  // Receive the welcome message
-  ftp::receive(connector_, buf_, buffer_size);
 }
 
 // Todo: Specify active or passive mode

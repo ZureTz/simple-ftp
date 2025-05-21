@@ -217,7 +217,6 @@ void ftp::protocol_interpreter_server::do_pass(std::string password) {
   is_logged_in = true;
   std::clog << "[Proto] " << "Valid password" << std::endl;
   const std::string response = "230 User logged in, proceed.\r\n";
-  ftp::send(&sock_, response);
 
   // Send welcome message current working directory
   // Set color green
@@ -228,7 +227,7 @@ void ftp::protocol_interpreter_server::do_pass(std::string password) {
                               current_working_directory_.string() +
                               "\" is the current "
                               "directory.\r\n";
-  ftp::send(&sock_, welcome);
+  ftp::send(&sock_, response + welcome);
 }
 
 // Set port mode or passive mode
