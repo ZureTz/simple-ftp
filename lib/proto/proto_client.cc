@@ -1,7 +1,10 @@
+#include <cstdio>
 #include <cstdlib>
 #include <iostream>
 #include <memory>
 #include <string>
+#include <thread>
+
 #include <sys/types.h>
 
 #include "proto/proto_interpreter.h"
@@ -330,22 +333,71 @@ void ftp::protocol_interpreter_client::receive_file(std::string filename) {
 // Implementation of file() and receive_file() in active mode and
 // passive mode
 void ftp::protocol_interpreter_client::send_file_active(std::string filename) {
-  
+  std::clog << "[Proto][File] " << "Send file active mode not implemented yet"
+            << std::endl;
 }
 
 void ftp::protocol_interpreter_client::send_file_passive(std::string filename) {
-  std::clog << "[Proto] " << "Send file passive mode not implemented yet"
+  std::clog << "[Proto][File] " << "Send file passive mode not implemented yet"
             << std::endl;
 }
 
 void ftp::protocol_interpreter_client::receive_file_active(
     std::string filename) {
-  std::clog << "[Proto] " << "Receive file active mode not implemented yet"
-            << std::endl;
+  std::clog << "[Proto][File] "
+            << "Receive file active mode not implemented yet" << std::endl;
 }
 
 void ftp::protocol_interpreter_client::receive_file_passive(
     std::string filename) {
-  std::clog << "[Proto] " << "Receive file passive mode not implemented yet"
-            << std::endl; 
+  // Create a new buffer to receive the file
+  std::shared_ptr<char> file_buf(new char[buffer_size],
+                                 std::default_delete<char[]>());
+  // Sleep for 500ms to wait for the server to listen on the port
+  std::this_thread::sleep_for(std::chrono::milliseconds(500));
+  // Create a connection to the server using a new sockpp::tcp_connector
+  sockpp::tcp_connector data_connector(
+      sockpp::inet_address(connector_->peer_address().address(),
+                           connector_->peer_address().port() + 1));
+  if (!data_connector) {
+    std::cerr << "Error: " << data_connector.last_error_str() << std::endl;
+    return;
+  }
+
+  // Receive the file size from the server
+  const auto file_size_str =
+      ftp::receive_message(connector_, file_buf, buffer_size);
+  // Convert the file size string to an integer
+  const long file_size = std::stoi(file_size_str);
+
+  // Create a new file to save the received file
+  auto const receive_file_fd = fopen(filename.c_str(), "w");
+  if (receive_file_fd == nullptr) {
+    std::cerr << "Error: " << strerror(errno) << std::endl;
+    data_connector.close();
+    return;
+  }
+
+  long remaining_size = file_size;
+  while (remaining_size > 0) {
+    // Receive the file data from the server
+    const ssize_t n = data_connector.read(file_buf.get(), buffer_size);
+    if (n <= 0) {
+      std::cerr << "Error: " << data_connector.last_error_str() << std::endl;
+      break;
+    }
+
+    // Write the received data to the file
+    fwrite(file_buf.get(), sizeof(char), n, receive_file_fd);
+    remaining_size -= n;
+
+    std::clog << "[Proto][File] "
+              << "Received " << n << " bytes, remaining: " << remaining_size
+              << std::endl;
+  }
+
+  // Close the file
+  fclose(receive_file_fd);
+  // Close the data connection
+  data_connector.close();
 }

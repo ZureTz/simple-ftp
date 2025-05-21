@@ -1,8 +1,13 @@
+#include <cstddef>
 #include <cstdint>
 #include <cstdlib>
 #include <filesystem>
 #include <iostream>
 #include <string>
+
+#include <fcntl.h>
+#include <sys/sendfile.h>
+#include <sys/stat.h>
 #include <sys/types.h>
 
 #include "proto/proto_interpreter.h"
@@ -501,23 +506,103 @@ void ftp::protocol_interpreter_server::receive_file(std::string filename) {
 // Implementation of file() and receive_file() in active mode and
 // passive mode
 void ftp::protocol_interpreter_server::send_file_active(std::string filename) {
-  std::clog << "[Proto] " << "Sending file in active mode not implemented"
+  std::clog << "[Proto][File] " << "Sending file in active mode not implemented"
             << std::endl;
-
 }
 
 void ftp::protocol_interpreter_server::send_file_passive(std::string filename) {
-  std::clog << "[Proto] " << "Sending file in passive mode not implemented"
+  // Create a new buffer for the file
+  std::shared_ptr<char> file_buf = std::shared_ptr<char>(
+      new char[buffer_size], std::default_delete<char[]>());
+  // Create a connection to the server using a new sockpp::tcp_acceptor
+  sockpp::tcp_acceptor data_acceptor(sock_.address().port() + 1);
+  if (!data_acceptor) {
+    std::cerr << "Error: " << data_acceptor.last_error_str() << std::endl;
+    return;
+  }
+
+  // Next: send the file to the client using established data connection
+  const auto file_path =
+      current_working_directory_ / filename; // Get the file path
+  // Log the file path
+  std::clog << "[Proto][File] " << "File path: " << file_path.string()
             << std::endl;
+  int send_file_fd = open(file_path.c_str(), O_RDONLY);
+  if (send_file_fd == -1) {
+    std::cerr << "Error: " << strerror(errno) << std::endl;
+    data_acceptor.close();
+    return;
+  }
+
+  // Get the file status
+  struct stat file_stat;
+  if (fstat(send_file_fd, &file_stat) == -1) {
+    std::cerr << "Error: " << strerror(errno) << std::endl;
+    close(send_file_fd);
+    data_acceptor.close();
+    return;
+  }
+
+  // Log the file size
+  std::clog << "[Proto][File] " << "File size: " << file_stat.st_size
+            << std::endl;
+
+  // Accept a new connection from the client
+  sockpp::tcp_socket data_sock = data_acceptor.accept();
+  if (!data_sock) {
+    std::cerr << "Error: " << data_acceptor.last_error_str() << std::endl;
+    close(send_file_fd);
+    data_acceptor.close();
+    return;
+  }
+  std::clog << "[Proto][File] "
+            << "Accepted data connection from " << data_sock.peer_address()
+            << std::endl;
+  // Send file size to the client
+  std::string file_size_str = std::to_string(file_stat.st_size) + "\r\n";
+  // Using sock_ instead of data_sock to send the file size
+  // to prevent collision with the data connection
+  ftp::send_message(&sock_, file_size_str);
+
+  // Send the file to the client
+  off_t offset = 0;
+  size_t remaining_size = file_stat.st_size;
+  while (remaining_size > 0) {
+    const auto sent_bytes =
+        sendfile(data_sock.handle(), send_file_fd, &offset, remaining_size);
+    if (sent_bytes < 0) {
+      std::cerr << "Error: " << strerror(errno) << std::endl;
+      break;
+    }
+    // fprintf(stdout, "1. Server sent %d bytes from file's data, offset is now : %d and remaining data = %d\n", sent_bytes, offset, remain_data);
+    std::clog << "[Proto][File] "
+              << "1. Server sent " << sent_bytes
+              << " bytes from file's data, offset is now: " << offset
+              << " and remaining data: " << remaining_size << std::endl;
+    remaining_size -= sent_bytes;
+    // fprintf(stdout, "2. Server sent %d bytes from file's data, offset is now : %d and remaining data = %d\n", sent_bytes, offset, remain_data);
+    std::clog << "[Proto][File] "
+              << "2. Server sent " << sent_bytes
+              << " bytes from file's data, offset is now: " << offset
+              << " and remaining data: " << remaining_size << std::endl;
+  }
+
+  // Close the file descriptor
+  close(send_file_fd);
+  // Close the data socket
+  data_sock.close();
+  // Close the data acceptor
+  data_acceptor.close();
 }
 
 void ftp::protocol_interpreter_server::receive_file_active(
     std::string filename) {
-  std::clog << "[Proto] " << "Receiving file in active mode not implemented"
-            << std::endl;
+  std::clog << "[Proto][File] "
+            << "Receiving file in active mode not implemented" << std::endl;
 }
 
 void ftp::protocol_interpreter_server::receive_file_passive(
     std::string filename) {
-  
+  std::clog << "[Proto][File] "
+            << "Receiving file in passive mode not implemented" << std::endl;
 }
