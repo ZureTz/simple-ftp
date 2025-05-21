@@ -27,3 +27,6 @@ build/
 
 ### Clangd cache ###
 .cache/
+
+### Received files ###
+received/

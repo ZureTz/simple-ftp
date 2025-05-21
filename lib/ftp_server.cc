@@ -6,7 +6,7 @@
 #include "utils/ftp.h"
 
 // Constructor
-ftp::server::server(int16_t command_port) {
+ftp::server::server(uint16_t command_port) {
   // Port number
   command_port_ = command_port;
 

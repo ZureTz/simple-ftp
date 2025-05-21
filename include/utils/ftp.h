@@ -28,6 +28,9 @@ enum operation {
   NOOP,     // No operation
 };
 
+// Trim the leading and trailing whitespace from a string
+std::string trim(const std::string &str);
+
 // Parse the command and return the operation
 std::pair<operation, std::string> parse_command(std::string command);
 } // namespace ftp

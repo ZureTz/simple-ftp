@@ -1,9 +1,11 @@
 #pragma once
 
 #include <atomic>
+#include <cstdint>
 #include <cstdlib>
 #include <filesystem>
 #include <memory>
+#include <sockpp/tcp_acceptor.h>
 #include <string>
 
 #include <sockpp/tcp_connector.h>
@@ -24,7 +26,7 @@ public:
 
 private:
   sockpp::tcp_connector *connector_;
-  std::atomic<bool> running_ = false;
+  std::atomic<bool> running_;
 
   // Buffer for reading data from the server
   std::shared_ptr<char> buf_;
@@ -40,7 +42,10 @@ private:
   //    loop until the user quits
 
   // Default to passive mode (client may be behind a NAT)
-  bool is_passive_mode = true;
+  bool is_passive_mode_;
+
+  // Client listening port in active mode
+  uint16_t client_data_port_;
 
   // Send username to the server, wait for response
   void do_user(std::string username);
@@ -88,6 +93,14 @@ private:
   // based on the mode (active or passive)
   void send_file(std::string filename);
   void receive_file(std::string filename);
+
+  // Implementation of file() and receive_file() in active mode and
+  // passive mode
+  void send_file_active(std::string filename);
+  void send_file_passive(std::string filename);
+
+  void receive_file_active(std::string filename);
+  void receive_file_passive(std::string filename);
 };
 
 class protocol_interpreter_server {
@@ -122,13 +135,16 @@ private:
   std::filesystem::path current_working_directory_;
 
   // Bool variables to check the state of the server
-  bool is_username_valid;
-  bool is_logged_in;
+  bool is_username_valid_;
+  bool is_logged_in_;
 
   std::string username_;
   std::string password_;
+
   // Default to passive mode true (client may be behind a NAT)
-  bool is_passive_mode;
+  bool is_passive_mode_;
+  // Client listening port in active mode
+  uint16_t client_data_port_;
 
   // Check username and password
   void do_user(std::string username);
@@ -168,6 +184,14 @@ private:
   // based on the mode (active or passive)
   void send_file(std::string filename);
   void receive_file(std::string filename);
+
+  // Implementation of file() and receive_file() in active mode and
+  // passive mode
+  void send_file_active(std::string filename);
+  void send_file_passive(std::string filename);
+
+  void receive_file_active(std::string filename);
+  void receive_file_passive(std::string filename);
 };
 
 } // namespace ftp

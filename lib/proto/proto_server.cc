@@ -1,4 +1,7 @@
+#include <cstdint>
 #include <cstdlib>
+#include <filesystem>
+#include <iostream>
 #include <string>
 #include <sys/types.h>
 
@@ -28,8 +31,8 @@ ftp::protocol_interpreter_server::protocol_interpreter_server(
             << current_working_directory_.relative_path().string() << std::endl;
 
   // Set is_logged_in to false
-  is_username_valid = false;
-  is_logged_in = false;
+  is_username_valid_ = false;
+  is_logged_in_ = false;
 
   // Set the username and password from environment variables
   username_ = getenv("FTP_USERNAME") ? getenv("FTP_USERNAME") : "anonymous";
@@ -39,7 +42,7 @@ ftp::protocol_interpreter_server::protocol_interpreter_server(
   std::clog << "[Proto] " << "Password: " << password_ << std::endl;
 
   // Set the default to passive mode
-  is_passive_mode = true;
+  is_passive_mode_ = true;
 
   // log
   std::clog << "[Proto] " << "Successfully created protocol interpreter server"
@@ -53,7 +56,7 @@ void ftp::protocol_interpreter_server::run() {
   // Keep receiving commands from the client
   while (running_) {
     // Read the command from the client
-    std::string input = ftp::receive(&sock_, buf_, buffer_size);
+    std::string input = ftp::receive_message(&sock_, buf_, buffer_size);
 
     // Parse the command (feed the command to the ftp::parse_command function)
     auto [operation, argument] = ftp::parse_command(input);
@@ -157,19 +160,19 @@ bool ftp::protocol_interpreter_server::is_running() const { return running_; }
 // Check username and password
 void ftp::protocol_interpreter_server::do_user(std::string username) {
   // If already logged in, send response
-  if (is_logged_in) {
+  if (is_logged_in_) {
     std::clog << "[Proto] " << "Already logged in" << std::endl;
     const std::string response = "230 User logged in, proceed.\r\n";
-    ftp::send(&sock_, response);
+    ftp::send_message(&sock_, response);
     return;
   }
 
   // Check if the username is already provided
-  if (is_username_valid) {
+  if (is_username_valid_) {
     std::clog << "[Proto] " << "Username already provided" << std::endl;
     const std::string response =
         "331 User name already provided, need password.\r\n";
-    ftp::send(&sock_, response);
+    ftp::send_message(&sock_, response);
     return;
   }
 
@@ -177,31 +180,31 @@ void ftp::protocol_interpreter_server::do_user(std::string username) {
   if (username != username_) {
     std::clog << "[Proto] " << "Invalid username" << std::endl;
     const std::string response = "530 Not logged in. Invalid username\r\n";
-    ftp::send(&sock_, response);
+    ftp::send_message(&sock_, response);
     return;
   }
 
   // Username is valid
-  is_username_valid = true;
+  is_username_valid_ = true;
   std::clog << "[Proto] " << "Valid username" << std::endl;
   const std::string response = "331 User name okay, need password.\r\n";
-  ftp::send(&sock_, response);
+  ftp::send_message(&sock_, response);
 }
 
 void ftp::protocol_interpreter_server::do_pass(std::string password) {
   // Check if user is already logged in
-  if (is_logged_in) {
+  if (is_logged_in_) {
     std::clog << "[Proto] " << "Already logged in" << std::endl;
     const std::string response = "230 User logged in, proceed.\r\n";
-    ftp::send(&sock_, response);
+    ftp::send_message(&sock_, response);
     return;
   }
 
   // Check if the username is valid
-  if (!is_username_valid) {
+  if (!is_username_valid_) {
     std::clog << "[Proto] " << "Invalid username" << std::endl;
     const std::string response = "530 Not logged in. Invalid username\r\n";
-    ftp::send(&sock_, response);
+    ftp::send_message(&sock_, response);
     return;
   }
 
@@ -209,12 +212,12 @@ void ftp::protocol_interpreter_server::do_pass(std::string password) {
   if (password != password_) {
     std::clog << "[Proto] " << "Invalid password" << std::endl;
     const std::string response = "530 Not logged in. Invalid password\r\n";
-    ftp::send(&sock_, response);
+    ftp::send_message(&sock_, response);
     return;
   }
 
   // Password is valid
-  is_logged_in = true;
+  is_logged_in_ = true;
   std::clog << "[Proto] " << "Valid password" << std::endl;
   const std::string response = "230 User logged in, proceed.\r\n";
 
@@ -227,40 +230,294 @@ void ftp::protocol_interpreter_server::do_pass(std::string password) {
                               current_working_directory_.string() +
                               "\" is the current "
                               "directory.\r\n";
-  ftp::send(&sock_, response + welcome);
+  ftp::send_message(&sock_, response + welcome);
 }
 
 // Set port mode or passive mode
-void ftp::protocol_interpreter_server::do_port(std::string port) {}
-void ftp::protocol_interpreter_server::do_pasv() {}
+void ftp::protocol_interpreter_server::do_port(std::string port) {
+  // Check if user is already logged in
+  if (!is_logged_in_) {
+    std::clog << "[Proto] " << "Not logged in" << std::endl;
+    const std::string response = "530 Not logged in\r\n";
+    ftp::send_message(&sock_, response);
+    return;
+  }
+
+  // If the port is empty, send response
+  if (port.empty()) {
+    std::clog << "[Proto] " << "Port is setting to default port" << std::endl;
+    // Use default port (client port  + 1)
+    const int default_port_num = sock_.peer_address().port() + 1;
+
+    // Check if the port number is valid
+    if (default_port_num < 1023 || default_port_num > 65535) {
+      std::clog << "[Proto] " << "Invalid port number" << std::endl;
+      const std::string response = "500 Invalid port number\r\n";
+      ftp::send_message(&sock_, response);
+      return;
+    }
+
+    // Set passive mode false
+    is_passive_mode_ = false;
+
+    // Set client_port_ to default port
+    client_data_port_ = uint16_t(default_port_num);
+
+    // Tell the client that the port is set
+    std::clog << "[Proto] " << "Port set to " << client_data_port_ << std::endl;
+    const std::string response =
+        "200 Port set to " + std::to_string(client_data_port_) + "\r\n";
+    ftp::send_message(&sock_, response);
+
+    return;
+  }
+
+  // Remove leading and trailing whitespace
+  port = ftp::trim(port);
+
+  // Convert the port string to an integer
+  const int port_num = std::stoi(port);
+
+  // Check if the port number is valid
+  if (port_num < 1024 || port_num > 65535) {
+    std::clog << "[Proto] " << "Invalid port number" << std::endl;
+    const std::string response = "500 Invalid port number\r\n";
+    ftp::send_message(&sock_, response);
+    return;
+  }
+
+  // Set passive mode false
+  is_passive_mode_ = false;
+
+  // Set client_port_ to provided port
+  client_data_port_ = uint16_t(port_num);
+
+  // Tell the client that the port is set
+  std::clog << "[Proto] " << "Port set to " << client_data_port_ << std::endl;
+  const std::string response =
+      "200 Port set to " + std::to_string(client_data_port_) + "\r\n";
+  ftp::send_message(&sock_, response);
+}
+
+void ftp::protocol_interpreter_server::do_pasv() {
+  // Check if user is already logged in
+  if (!is_logged_in_) {
+    std::clog << "[Proto] " << "Not logged in" << std::endl;
+    const std::string response = "530 Not logged in\r\n";
+    ftp::send_message(&sock_, response);
+    return;
+  }
+
+  // Set passive mode true
+  is_passive_mode_ = true;
+
+  // Log result
+  std::clog << "[Proto] " << "Passive mode set" << std::endl;
+
+  // Tell the client that the port is set
+  const std::string response = "200 Passive mode set to true.\r\n";
+  ftp::send_message(&sock_, response);
+}
 
 // Send the file to the client
-void ftp::protocol_interpreter_server::do_retr(std::string filename) {}
+void ftp::protocol_interpreter_server::do_retr(std::string filename) {
+  // Check if user is already logged in
+  if (!is_logged_in_) {
+    std::clog << "[Proto] " << "Not logged in" << std::endl;
+    const std::string response = "530 Not logged in\r\n";
+    ftp::send_message(&sock_, response);
+    return;
+  }
+
+  // Check if the file exists
+  // Get path by filename
+  std::filesystem::path file_path = current_working_directory_ / filename;
+  if (!std::filesystem::exists(file_path)) {
+    std::clog << "[Proto] " << "File \"" << file_path << "\" does not exist"
+              << std::endl;
+    const std::string response = "550 File not found\r\n";
+    ftp::send_message(&sock_, response);
+    return;
+  }
+  // File exists, tell the client that the file is ready to be sent
+  std::string response_one = "200 File status okay; about to open data "
+                             "connection\r\n";
+  ftp::send_message(&sock_, response_one);
+  std::clog << "[Proto] "
+            << "File status okay; about to open data "
+               "connection"
+            << std::endl;
+
+  // Start sending the file
+  std::clog << "[Proto] " << "Sending file: " << filename << std::endl;
+  send_file(filename);
+
+  // After sending the file, wait for response from the client
+  std::string acknowledge = ftp::receive_message(&sock_, buf_, buffer_size);
+  if (acknowledge.find("DONE") == std::string::npos) {
+    std::clog << "[Proto] " << "Error: " << acknowledge << std::endl;
+    return;
+  }
+  std::clog << "[Proto] " << "File transfer done" << std::endl;
+}
+
 // Store file to the server, read it from the client socket
 // Then send the response to the client
-void ftp::protocol_interpreter_server::do_stor(std::string filename) {}
+void ftp::protocol_interpreter_server::do_stor(std::string filename) {
+  // Check if user is already logged in
+  if (!is_logged_in_) {
+    std::clog << "[Proto] " << "Not logged in" << std::endl;
+    const std::string response = "530 Not logged in\r\n";
+    ftp::send_message(&sock_, response);
+    return;
+  }
+}
+
 // List files in the current working directory and send it to the client
-void ftp::protocol_interpreter_server::do_list() {}
+void ftp::protocol_interpreter_server::do_list() {
+  // Check if user is already logged in
+  if (!is_logged_in_) {
+    std::clog << "[Proto] " << "Not logged in" << std::endl;
+    const std::string response = "530 Not logged in\r\n";
+    ftp::send_message(&sock_, response);
+    return;
+  }
+}
+
 // Change current working directory, send response to the client
-void ftp::protocol_interpreter_server::do_cwd(std::string directory) {}
+void ftp::protocol_interpreter_server::do_cwd(std::string directory) {
+  // Check if user is already logged in
+  if (!is_logged_in_) {
+    std::clog << "[Proto] " << "Not logged in" << std::endl;
+    const std::string response = "530 Not logged in\r\n";
+    ftp::send_message(&sock_, response);
+    return;
+  }
+}
+
 // Change to parent directory, send response to the client
-void ftp::protocol_interpreter_server::do_cdup(std::string directory) {}
+void ftp::protocol_interpreter_server::do_cdup(std::string directory) {
+  // Check if user is already logged in
+  if (!is_logged_in_) {
+    std::clog << "[Proto] " << "Not logged in" << std::endl;
+    const std::string response = "530 Not logged in\r\n";
+    ftp::send_message(&sock_, response);
+    return;
+  }
+}
+
 // Send the current working directory name to the client
-void ftp::protocol_interpreter_server::do_pwd() {}
+void ftp::protocol_interpreter_server::do_pwd() {
+  // Check if user is already logged in
+  if (!is_logged_in_) {
+    std::clog << "[Proto] " << "Not logged in" << std::endl;
+    const std::string response = "530 Not logged in\r\n";
+    ftp::send_message(&sock_, response);
+    return;
+  }
+}
+
 // Make directory and send request to the client
-void ftp::protocol_interpreter_server::do_mkd(std::string directory) {}
+void ftp::protocol_interpreter_server::do_mkd(std::string directory) {
+  // Check if user is already logged in
+  if (!is_logged_in_) {
+    std::clog << "[Proto] " << "Not logged in" << std::endl;
+    const std::string response = "530 Not logged in\r\n";
+    ftp::send_message(&sock_, response);
+    return;
+  }
+}
+
 // Remove directory and send response to the client
-void ftp::protocol_interpreter_server::do_rmd(std::string directory) {}
+void ftp::protocol_interpreter_server::do_rmd(std::string directory) {
+  // Check if user is already logged in
+  if (!is_logged_in_) {
+    std::clog << "[Proto] " << "Not logged in" << std::endl;
+    const std::string response = "530 Not logged in\r\n";
+    ftp::send_message(&sock_, response);
+    return;
+  }
+}
+
 // Delete file, send response to the client
-void ftp::protocol_interpreter_server::do_dele(std::string filename) {}
+void ftp::protocol_interpreter_server::do_dele(std::string filename) {
+  // Check if user is already logged in
+  if (!is_logged_in_) {
+    std::clog << "[Proto] " << "Not logged in" << std::endl;
+    const std::string response = "530 Not logged in\r\n";
+    ftp::send_message(&sock_, response);
+    return;
+  }
+}
+
 // Rename from, send response to the client
-void ftp::protocol_interpreter_server::do_rnfr(std::string oldname) {}
+void ftp::protocol_interpreter_server::do_rnfr(std::string oldname) {
+  // Check if user is already logged in
+  if (!is_logged_in_) {
+    std::clog << "[Proto] " << "Not logged in" << std::endl;
+    const std::string response = "530 Not logged in\r\n";
+    ftp::send_message(&sock_, response);
+    return;
+  }
+}
+
 // Rename to, send response to the client
-void ftp::protocol_interpreter_server::do_rnto(std::string newname) {}
+void ftp::protocol_interpreter_server::do_rnto(std::string newname) {
+  // Check if user is already logged in
+  if (!is_logged_in_) {
+    std::clog << "[Proto] " << "Not logged in" << std::endl;
+    const std::string response = "530 Not logged in\r\n";
+    ftp::send_message(&sock_, response);
+    return;
+  }
+}
 
 // send_file() and recv_file() are used to send and receive files over a
 // socket.
 // These functions will establish a data connection with the client
 // based on the mode (active or passive)
-void ftp::protocol_interpreter_server::send_file(std::string filename) {}
-void ftp::protocol_interpreter_server::receive_file(std::string filename) {}
+void ftp::protocol_interpreter_server::send_file(std::string filename) {
+  // Check if using the active mode or passive mode
+  if (is_passive_mode_) {
+    send_file_passive(filename);
+    return;
+  }
+
+  // Active mode
+  send_file_active(filename);
+}
+
+void ftp::protocol_interpreter_server::receive_file(std::string filename) {
+  // Check if using the active mode or passive mode
+  if (is_passive_mode_) {
+    receive_file_passive(filename);
+    return;
+  }
+
+  // Active mode
+  receive_file_active(filename);
+}
+
+// Implementation of file() and receive_file() in active mode and
+// passive mode
+void ftp::protocol_interpreter_server::send_file_active(std::string filename) {
+  std::clog << "[Proto] " << "Sending file in active mode not implemented"
+            << std::endl;
+
+}
+
+void ftp::protocol_interpreter_server::send_file_passive(std::string filename) {
+  std::clog << "[Proto] " << "Sending file in passive mode not implemented"
+            << std::endl;
+}
+
+void ftp::protocol_interpreter_server::receive_file_active(
+    std::string filename) {
+  std::clog << "[Proto] " << "Receiving file in active mode not implemented"
+            << std::endl;
+}
+
+void ftp::protocol_interpreter_server::receive_file_passive(
+    std::string filename) {
+  
+}

@@ -11,7 +11,7 @@ namespace ftp {
 
 class server {
 public:
-  server(int16_t command_port);
+  server(uint16_t command_port);
   ~server();
 
   void start();
@@ -20,7 +20,7 @@ public:
 private:
   void run_echo(sockpp::tcp_socket sock);
 
-  int16_t command_port_; // Command port (always be used)
+  uint16_t command_port_; // Command port (always be used)
 
   sockpp::tcp_acceptor acceptor_;
   std::atomic<bool> running_;

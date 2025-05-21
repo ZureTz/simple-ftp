@@ -29,7 +29,7 @@ int main(int argc, char const *argv[]) {
   // Initialize sockpp
   sockpp::initialize();
 
-  const int16_t port = program.get<int>("--port");
+  const uint16_t port = program.get<int>("--port");
   std::clog << "[Main] " << "Listening on port " << port << std::endl;
 
   // Init server

@@ -10,7 +10,7 @@
 
 // Constructor
 ftp::client::client(const std::string &server_host,
-                    int16_t server_command_port) {
+                    uint16_t server_command_port) {
   // Set server host and port
   server_host_ = server_host;
   server_command_port_ = server_command_port;

@@ -9,16 +9,16 @@
 namespace ftp {
 
 // Send (using connector)
-void send(sockpp::tcp_connector *connector, const std::string &data);
+void send_message(sockpp::tcp_connector *connector, const std::string &data);
 
 // Send (using socket)
-void send(sockpp::tcp_socket *socket, const std::string &data);
+void send_message(sockpp::tcp_socket *socket, const std::string &data);
 
 // Receive (using connector)
-std::string receive(sockpp::tcp_connector *connector,
-                    std::shared_ptr<char> buffer, size_t buffer_size);
+std::string receive_message(sockpp::tcp_connector *connector,
+                            std::shared_ptr<char> buffer, size_t buffer_size);
 
 // Receive (using socket)
-std::string receive(sockpp::tcp_socket *socket, std::shared_ptr<char> buffer,
-                    size_t buffer_size);
+std::string receive_message(sockpp::tcp_socket *socket,
+                            std::shared_ptr<char> buffer, size_t buffer_size);
 } // namespace ftp

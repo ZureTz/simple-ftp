@@ -13,7 +13,7 @@ namespace ftp {
 
 class client {
 public:
-  client(const std::string &server_host, int16_t server_command_port);
+  client(const std::string &server_host, uint16_t server_command_port);
   ~client() = default;
 
   void connect();
@@ -21,7 +21,7 @@ public:
 
 private:
   std::string server_host_;     // Server host
-  int16_t server_command_port_; // Server command port
+  uint16_t server_command_port_; // Server command port
 
   sockpp::tcp_connector connector_;
   std::atomic<bool> connected_;

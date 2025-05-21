@@ -8,6 +8,15 @@
 
 #include "utils/ftp.h"
 
+// Trim the leading and trailing whitespace from a string
+std::string ftp::trim(const std::string &str) {
+  auto string_copy = str;
+  string_copy = std::regex_replace(string_copy, std::regex("^ +"), "");
+  string_copy = std::regex_replace(string_copy, std::regex(" +$"), "");
+  return string_copy;
+}
+
+// Parse the command and return the operation based on the command
 std::pair<ftp::operation, std::string> ftp::parse_command(std::string command) {
   auto split = [](const std::string &txt, std::vector<std::string> &strs,
                   char ch) -> size_t {
@@ -31,8 +40,7 @@ std::pair<ftp::operation, std::string> ftp::parse_command(std::string command) {
   };
 
   // Remove leading and trailing whitespace
-  command = std::regex_replace(command, std::regex("^ +"), "");
-  command = std::regex_replace(command, std::regex(" +$"), "");
+  command = ftp::trim(command);
 
   // Separate the command and the argument by space
   std::vector<std::string> tokens;
@@ -47,7 +55,7 @@ std::pair<ftp::operation, std::string> ftp::parse_command(std::string command) {
                  [](unsigned char c) { return std::tolower(c); });
   // Check the command and return the corresponding operation
   // Log the command
-  std::clog << "[Parser] Parsed command: " ;
+  std::clog << "[Parser] Parsed command: ";
   for (const auto &token : tokens) {
     std::clog << token << " ";
   }
@@ -111,7 +119,7 @@ std::pair<ftp::operation, std::string> ftp::parse_command(std::string command) {
     return {ftp::DELE, tokens[1]};
   }
   // rnfr <oldname>
-  if (tokens[0] == "rnfr"&& tokens.size() == 2) {
+  if (tokens[0] == "rnfr" && tokens.size() == 2) {
     return {ftp::RNFR, tokens[1]};
   }
   // rnto <newname>
