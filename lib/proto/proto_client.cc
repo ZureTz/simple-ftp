@@ -5,6 +5,8 @@
 #include <string>
 #include <thread>
 
+#include <indicators/cursor_control.hpp>
+#include <indicators/progress_bar.hpp>
 #include <sys/types.h>
 
 #include "proto/proto_interpreter.h"
@@ -369,6 +371,8 @@ void ftp::protocol_interpreter_client::receive_file_passive(
       ftp::receive_message(connector_, file_buf, buffer_size);
   // Convert the file size string to an integer
   const long file_size = std::stoi(file_size_str);
+  std::clog << "[Proto][File] "
+            << "File size to receive: " << file_size << std::endl;
 
   // Create a new file to save the received file
   auto const receive_file_fd = fopen(filename.c_str(), "w");
@@ -378,6 +382,23 @@ void ftp::protocol_interpreter_client::receive_file_passive(
     return;
   }
 
+  // Hide cursor
+  indicators::show_console_cursor(false);
+
+  // Prepare the progress bar using indicators
+  indicators::ProgressBar bar{
+      indicators::option::BarWidth{50},
+      indicators::option::ShowElapsedTime{true},
+      indicators::option::ShowRemainingTime{true},
+      indicators::option::PrefixText{"Downloading "},
+      indicators::option::ForegroundColor{indicators::Color::green},
+      indicators::option::ShowPercentage{true},
+      indicators::option::FontStyles{
+          std::vector<indicators::FontStyle>{indicators::FontStyle::bold},
+      },
+  };
+
+  int i = 0;
   long remaining_size = file_size;
   while (remaining_size > 0) {
     // Receive the file data from the server
@@ -391,10 +412,21 @@ void ftp::protocol_interpreter_client::receive_file_passive(
     fwrite(file_buf.get(), sizeof(char), n, receive_file_fd);
     remaining_size -= n;
 
-    std::clog << "[Proto][File] "
-              << "Received " << n << " bytes, remaining: " << remaining_size
-              << std::endl;
+    // If completed, skip the progress bar
+    if (bar.is_completed()) { // Set the progress bar value
+      continue;
+    }
+    // Otherwise, set the progress bar to the current value
+    // Update the progress bar
+    bar.set_progress(100 - (remaining_size * 100) / file_size);
   }
+
+  // Completed, set the progress bar to 100%
+  bar.set_option(indicators::option::PrefixText{"Download complete "});
+  bar.mark_as_completed();
+
+  // Show cursor
+  indicators::show_console_cursor(true);
 
   // Close the file
   fclose(receive_file_fd);
