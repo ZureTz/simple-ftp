@@ -51,6 +51,9 @@ void ftp::client::disconnect() {
 
   // Delete the protocol interpreter
   if (protocol_interpreter_) {
+    if (protocol_interpreter_->is_running()) {
+      protocol_interpreter_->stop();
+    }
     delete protocol_interpreter_;
     protocol_interpreter_ = nullptr;
   }

@@ -1,15 +1,21 @@
 #include <cstdlib>
 #include <iostream>
+#include <memory>
 #include <string>
+#include <sys/types.h>
 
 #include "proto/proto_interpreter.h"
 #include "utils/ftp.h"
+#include "utils/io.h"
 
 // Protocol interpreter client implementation
 // Constructor
 ftp::protocol_interpreter_client::protocol_interpreter_client(
     sockpp::tcp_connector *const connector) {
   connector_ = connector;
+  // Initialize the buffer
+  buf_ = std::shared_ptr<char>(new char[buffer_size],
+                               std::default_delete<char[]>());
 }
 
 // Run the protocol interpreter
@@ -21,7 +27,7 @@ void ftp::protocol_interpreter_client::run() {
   std::clog << "[Proto] " << "Welcome to the FTP client!" << std::endl;
 
   std::string input;
-  while ((std::cout << "ftp> ") && std::getline(std::cin, input) && running_) {
+  while (running_ && (std::cout << "ftp> ") && std::getline(std::cin, input)) {
     // Check if the input contains only whitespace
     if (input.find_first_not_of(" \t\n") == std::string::npos) {
       continue; // Skip empty input
@@ -36,93 +42,94 @@ void ftp::protocol_interpreter_client::run() {
     std::clog << "[Proto] " << "Sending command: " << operation << " "
               << argument << std::endl;
     // Send the command to the server (debug only)
-    ssize_t n = connector_->write(input.c_str(), input.size());
-    if (n <= 0) {
-      std::cerr << "Error: " << connector_->last_error_str() << std::endl;
-      break;
-    }
+    // ssize_t n = connector_->write(input.c_str(), input.size());
+    // if (n <= 0) {
+    //   std::cerr << "Error: " << connector_->last_error_str() << std::endl;
+    //   break;
+    // }
 
     // Authentication and quit
-    // if (operation == ftp::USER) {
-    //   do_user(argument);
-    //   continue;
-    // }
-    // if (operation == ftp::PASS) {
-    //   do_pass(argument);
-    //   continue;
-    // }
-    // if (operation == ftp::QUIT) {
-    //   stop();
-    //   continue;
-    // }
+    if (operation == ftp::USER) {
+      do_user(argument);
+      continue;
+    }
+    if (operation == ftp::PASS) {
+      do_pass(argument);
+      continue;
+    }
+    if (operation == ftp::QUIT) {
+      std::clog << "[Proto] " << "Quitting..." << std::endl;
+      stop();
+      continue;
+    }
 
-    // // Specify active or passive mode (default to passive mode)
-    // if (operation == ftp::PORT) {
-    //   do_port(argument);
-    //   continue;
-    // }
-    // if (operation == ftp::PASV) {
-    //   do_pasv();
-    //   continue;
-    // }
+    // Specify active or passive mode (default to passive mode)
+    if (operation == ftp::PORT) {
+      do_port(argument);
+      continue;
+    }
+    if (operation == ftp::PASV) {
+      do_pasv();
+      continue;
+    }
 
-    // // File transfer
-    // if (operation == ftp::RETR) {
-    //   do_retr(argument);
-    //   continue;
-    // }
-    // if (operation == ftp::STOR) {
-    //   do_stor(argument);
-    //   continue;
-    // }
-    // if (operation == ftp::LIST) {
-    //   do_list();
-    //   continue;
-    // }
-    // if (operation == ftp::CWD) {
-    //   do_cwd(argument);
-    //   continue;
-    // }
-    // if (operation == ftp::CDUP) {
-    //   do_cdup(argument);
-    //   continue;
-    // }
-    // if (operation == ftp::PWD) {
-    //   do_pwd();
-    //   continue;
-    // }
-    // if (operation == ftp::MKD) {
-    //   do_mkd(argument);
-    //   continue;
-    // }
-    // if (operation == ftp::RMD) {
-    //   do_rmd(argument);
-    //   continue;
-    // }
-    // if (operation == ftp::DELE) {
-    //   do_dele(argument);
-    //   continue;
-    // }
-    // if (operation == ftp::RNFR) {
-    //   do_rnfr(argument);
-    //   continue;
-    // }
-    // if (operation == ftp::RNTO) {
-    //   do_rnto(argument);
-    //   continue;
-    // }
+    // File transfer
+    if (operation == ftp::RETR) {
+      do_retr(argument);
+      continue;
+    }
+    if (operation == ftp::STOR) {
+      do_stor(argument);
+      continue;
+    }
+    if (operation == ftp::LIST) {
+      do_list();
+      continue;
+    }
+    if (operation == ftp::CWD) {
+      do_cwd(argument);
+      continue;
+    }
+    if (operation == ftp::CDUP) {
+      do_cdup(argument);
+      continue;
+    }
+    if (operation == ftp::PWD) {
+      do_pwd();
+      continue;
+    }
+    if (operation == ftp::MKD) {
+      do_mkd(argument);
+      continue;
+    }
+    if (operation == ftp::RMD) {
+      do_rmd(argument);
+      continue;
+    }
+    if (operation == ftp::DELE) {
+      do_dele(argument);
+      continue;
+    }
+    if (operation == ftp::RNFR) {
+      do_rnfr(argument);
+      continue;
+    }
+    if (operation == ftp::RNTO) {
+      do_rnto(argument);
+      continue;
+    }
 
-    // // Help command
-    // if (operation == ftp::HELP) {
-    //   do_help();
-    //   continue;
-    // }
+    // Help command
+    if (operation == ftp::HELP) {
+      do_help();
+      continue;
+    }
 
-    // // NOOP command
-    // if (operation == ftp::NOOP) {
-    //   std::clog<< "[Proto] " << "No operation" << std::endl;
-    //   continue;
-    // }
+    // NOOP command
+    if (operation == ftp::NOOP) {
+      std::clog << "[Proto] " << "No operation" << std::endl;
+      continue;
+    }
   }
 }
 
@@ -130,12 +137,33 @@ void ftp::protocol_interpreter_client::run() {
 void ftp::protocol_interpreter_client::stop() {
   // Set running to false
   running_ = false;
+  // Send QUIT command to the server
+  std::string quit_command = "QUIT";
+  ftp::send(connector_, quit_command);
 }
 
+// Check if the protocol interpreter is running
+bool ftp::protocol_interpreter_client::is_running() const { return running_; }
+
 // Send username to the server, wait for response
-void ftp::protocol_interpreter_client::do_user(std::string username) {}
+void ftp::protocol_interpreter_client::do_user(std::string username) {
+  const std::string user_command = "USER " + username;
+  ftp::send(connector_, user_command);
+
+  // Wait for response from the server
+  ftp::receive(connector_, buf_, buffer_size);
+}
+
 // Send password to the server, wait for response
-void ftp::protocol_interpreter_client::do_pass(std::string password) {}
+void ftp::protocol_interpreter_client::do_pass(std::string password) {
+  const std::string pass_command = "PASS " + password;
+  ftp::send(connector_, pass_command);
+
+  // Wait for response from the server
+  ftp::receive(connector_, buf_, buffer_size);
+  // Receive the welcome message
+  ftp::receive(connector_, buf_, buffer_size);
+}
 
 // Todo: Specify active or passive mode
 // Send PORT command to the server, wait for response

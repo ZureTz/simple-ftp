@@ -3,6 +3,7 @@
 #include <atomic>
 #include <cstdlib>
 #include <filesystem>
+#include <memory>
 #include <string>
 
 #include <sockpp/tcp_connector.h>
@@ -18,9 +19,15 @@ public:
   void run();
   void stop();
 
+  // Is protocol interpreter running?
+  bool is_running() const;
+
 private:
   sockpp::tcp_connector *connector_;
   std::atomic<bool> running_ = false;
+
+  // Buffer for reading data from the server
+  std::shared_ptr<char> buf_;
 
   // States of the protocol interpreter
   // 0: Not logged in
@@ -91,9 +98,15 @@ public:
   void run();
   void stop();
 
+  // Is protocol interpreter running?
+  bool is_running() const;
+
 private:
   sockpp::tcp_socket sock_;
-  std::atomic<bool> running_;
+  std::atomic<bool> running_ = false;
+
+  // Buffer for reading data from the client
+  std::shared_ptr<char> buf_;
 
   // States of the protocol interpreter
   // 0: Not logged in
@@ -109,7 +122,9 @@ private:
   std::filesystem::path current_working_directory_;
 
   // Bool variables to check the state of the server
+  bool is_username_valid;
   bool is_logged_in;
+
   std::string username_;
   std::string password_;
   // Default to passive mode true (client may be behind a NAT)

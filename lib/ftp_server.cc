@@ -66,6 +66,9 @@ void ftp::server::start() {
 void ftp::server::stop() {
   // Stop the protocol interpreter
   for (auto &interpreter : interpreters_) {
+    if (!interpreter->is_running()) {
+      continue; // Skip if the interpreter is not running
+    }
     interpreter->stop();
   }
 

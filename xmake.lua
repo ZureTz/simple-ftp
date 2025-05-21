@@ -1,7 +1,7 @@
 -- Generate compile_commands.json for clangd every time the project is built
 add_rules("plugin.compile_commands.autoupdate", {lsp = "clangd"})
--- Set c++ code standard: c++17
-set_languages("c++17")
+-- Set c++ code standard: c++20
+set_languages("c++20")
 add_requires("sockpp")
 add_requires("argparse")
 
