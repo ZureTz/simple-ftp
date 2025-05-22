@@ -41,7 +41,6 @@ int main(int argc, char const *argv[]) {
 
   // Init client
   ftp::client client(host, port);
-  ftp_client = &client;
   // Init signal handler
   init_sigint_handler_client();
 
