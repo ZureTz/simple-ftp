@@ -1,8 +1,6 @@
 #include "proto/proto_interpreter.h"
 #include "utils/ftp.h"
 #include "utils/io.h"
-#include <iostream>
-#include <string>
 
 // Protocol interpreter server implementation
 ftp::protocol_interpreter_server::protocol_interpreter_server(

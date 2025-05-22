@@ -1,7 +1,6 @@
 #include "proto/proto_interpreter.h"
 #include "utils/ftp.h"
 #include "utils/io.h"
-#include <string>
 
 // Protocol interpreter client implementation
 // Constructor
