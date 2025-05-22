@@ -11,7 +11,7 @@ xmake
 
 ```bash
 # Run the server
-xmake run simple-ftp-server --port 8080
+env FTP_USERNAME="anonymous" FTP_PASSWORD="anonymous" xmake run simple-ftp-server --port 8080
 ```
 
 ```bash
