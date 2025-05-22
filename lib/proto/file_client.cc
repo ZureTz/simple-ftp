@@ -1,3 +1,5 @@
+#include <iostream>
+
 #include <fcntl.h>
 #include <indicators/cursor_control.hpp>
 #include <indicators/progress_bar.hpp>
@@ -115,6 +117,9 @@ void ftp::protocol_interpreter_client::send_file_active(std::string filename) {
   data_sock.close();
   // Close the data acceptor
   data_acceptor.close();
+
+  // Tell user that the file transfer is done
+  std::cout << "File transfer done" << std::endl;
 }
 
 void ftp::protocol_interpreter_client::send_file_passive(std::string filename) {
@@ -190,6 +195,8 @@ void ftp::protocol_interpreter_client::send_file_passive(std::string filename) {
   close(send_file_fd);
   // Close the data socket
   data_connector.close();
+  // Tell user that the file transfer is done
+  std::cout << "File transfer done" << std::endl;
 }
 
 // Receive file from the server using active mode
@@ -280,6 +287,8 @@ void ftp::protocol_interpreter_client::receive_file_active(
   data_sock.close();
   // Close the data acceptor
   data_acceptor.close();
+  // Tell user that the file transfer is done
+  std::cout << "File transfer done" << std::endl;
 }
 
 // Receive file from the server using passive mode
@@ -372,4 +381,6 @@ void ftp::protocol_interpreter_client::receive_file_passive(
   fclose(receive_file_fd);
   // Close the data connection
   data_connector.close();
+  // Tell user that the file transfer is done
+  std::cout << "File transfer done" << std::endl;
 }

@@ -1,6 +1,7 @@
 #include "proto/proto_interpreter.h"
 #include "utils/ftp.h"
 #include "utils/io.h"
+#include <string>
 
 // Protocol interpreter client implementation
 // Constructor
@@ -304,7 +305,24 @@ void ftp::protocol_interpreter_client::do_stor(std::string filename) {
   std::clog << "[Proto] " << "File transfer done" << std::endl;
 }
 // List files in the current directory, wait for response
-void ftp::protocol_interpreter_client::do_list() {}
+void ftp::protocol_interpreter_client::do_list() {
+  // Send LIST command to the server
+  const std::string list_command = "LIST";
+  ftp::send_message(connector_, list_command);
+
+  // Wait for response from the server
+  const auto response = ftp::receive_message(connector_, buf_, buffer_size);
+  // If response is not 200, return
+  if (response.find("200") == std::string::npos) {
+    // Show user the response
+    std::cout << response << std::endl;
+    return;
+  }
+  // Otherwise, print the list of files
+  std::clog << "[Proto] " << "Listing files in the current directory"
+            << std::endl;
+  std::cout << response << std::endl;
+}
 // Change working directory, wait for response
 void ftp::protocol_interpreter_client::do_cwd(std::string directory) {}
 // Change to parent directory, wait for response

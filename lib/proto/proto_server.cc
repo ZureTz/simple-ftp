@@ -1,6 +1,7 @@
 #include "proto/proto_interpreter.h"
 #include "utils/ftp.h"
 #include "utils/io.h"
+#include <string>
 
 // Protocol interpreter server implementation
 ftp::protocol_interpreter_server::protocol_interpreter_server(
@@ -26,6 +27,9 @@ ftp::protocol_interpreter_server::protocol_interpreter_server(
   // Set is_logged_in to false
   is_username_valid_ = false;
   is_logged_in_ = false;
+
+  // Debug only
+  is_logged_in_ = true;
 
   // Set the username and password from environment variables
   username_ = getenv("FTP_USERNAME") ? getenv("FTP_USERNAME") : "anonymous";
@@ -391,6 +395,75 @@ void ftp::protocol_interpreter_server::do_list() {
     ftp::send_message(&sock_, response);
     return;
   }
+
+  // Check if the current working directory is valid
+  if (!std::filesystem::exists(current_working_directory_)) {
+    std::clog << "[Proto] " << "Current working directory does not exist"
+              << std::endl;
+    const std::string response =
+        "550 Current working directory not exist or permission denied.\r\n";
+    ftp::send_message(&sock_, response);
+    return;
+  }
+
+  // List files in the current working directory
+  std::string response = "200 Directory listing:\r\n";
+  // Array of file name for further alphabetical sorting
+  std::vector<std::string> file_list;
+  for (const auto &entry :
+       std::filesystem::directory_iterator(current_working_directory_)) {
+    // Check if the entry is a file or directory
+    if (entry.is_regular_file()) {
+      // Add the file name to the list
+      file_list.push_back(entry.path().filename().string());
+      continue;
+    }
+
+    if (entry.is_directory()) {
+      // Add the directory name to the list
+      file_list.push_back(entry.path().filename().string() + "/");
+      continue;
+    }
+  }
+  // Sort the file list (With alphabetical order, and directories first)
+  auto str_comp = [](const std::string &a, const std::string &b) {
+    // Check for empty strings
+    if (a.empty() && b.empty()) {
+      return false;
+    }
+    if (a.empty()) {
+      return false;
+    }
+    if (b.empty()) {
+      return true;
+    }
+
+    // Sort directories first, then files
+    bool a_is_dir = a.back() == '/';
+    bool b_is_dir = b.back() == '/';
+    if (a_is_dir != b_is_dir) {
+      return a_is_dir;
+    }
+
+    // Finally sort alphabetically
+    return a < b;
+  };
+  std::sort(file_list.begin(), file_list.end(), str_comp);
+  // Add the file names to the response string, note that directories are in
+  // blue color
+  for (const auto &file : file_list) {
+    if (file.back() == '/') {
+      // Remove the trailing slash
+      std::string file_no_slash = file.substr(0, file.size() - 1);
+      response += "\033[34m" + file_no_slash + "\033[0m\r\n";
+    } else {
+      response += file + "\r\n";
+    }
+  }
+
+  // Send the response to the client
+  ftp::send_message(&sock_, response);
+  std::clog << "[Proto] " << "File list sent to client" << std::endl;
 }
 
 // Change current working directory, send response to the client
