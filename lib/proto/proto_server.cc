@@ -4,8 +4,13 @@
 #include <filesystem>
 #include <iostream>
 #include <string>
+#include <thread>
 
 #include <fcntl.h>
+#include <indicators/cursor_control.hpp>
+#include <indicators/progress_bar.hpp>
+#include <indicators/setting.hpp>
+#include <sockpp/tcp_connector.h>
 #include <sys/sendfile.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -366,8 +371,7 @@ void ftp::protocol_interpreter_server::do_retr(std::string filename) {
   std::clog << "[Proto] " << "File transfer done" << std::endl;
 }
 
-// Store file to the server, read it from the client socket
-// Then send the response to the client
+// Receive file from the client
 void ftp::protocol_interpreter_server::do_stor(std::string filename) {
   // Check if user is already logged in
   if (!is_logged_in_) {
@@ -376,6 +380,23 @@ void ftp::protocol_interpreter_server::do_stor(std::string filename) {
     ftp::send_message(&sock_, response);
     return;
   }
+
+  // Tell the client that the server is ready to receive the file
+  std::string response_one = "200 OK to open data connection\r\n";
+  ftp::send_message(&sock_, response_one);
+  std::clog << "[Proto] " << "200 OK to open data connection\r\n" << std::endl;
+
+  // Start receiving the file
+  std::clog << "[Proto] " << "Receiving file: " << filename << std::endl;
+  receive_file(filename);
+
+  // After receiving the file, wait for response from the client
+  std::string acknowledge = ftp::receive_message(&sock_, buf_, buffer_size);
+  if (acknowledge.find("DONE") == std::string::npos) {
+    std::clog << "[Proto] " << "Error: " << acknowledge << std::endl;
+    return;
+  }
+  std::clog << "[Proto] " << "File transfer done" << std::endl;
 }
 
 // List files in the current working directory and send it to the client
@@ -505,16 +526,88 @@ void ftp::protocol_interpreter_server::receive_file(std::string filename) {
 
 // Implementation of file() and receive_file() in active mode and
 // passive mode
+
+// Send file to the client using active mode
 void ftp::protocol_interpreter_server::send_file_active(std::string filename) {
-  std::clog << "[Proto][File] " << "Sending file in active mode not implemented"
+  const auto file_path =
+      current_working_directory_ / filename; // Get the file path
+  // Log the file path
+  std::clog << "[Proto][File] " << "File path: " << file_path.string()
             << std::endl;
+  int send_file_fd = open(file_path.c_str(), O_RDONLY);
+  if (send_file_fd == -1) {
+    std::cerr << "Error: " << strerror(errno) << std::endl;
+    return;
+  }
+
+  // Get the file status
+  struct stat file_stat;
+  if (fstat(send_file_fd, &file_stat) == -1) {
+    std::cerr << "Error: " << strerror(errno) << std::endl;
+    close(send_file_fd);
+    return;
+  }
+
+  // Log the file size
+  std::clog << "[Proto][File] " << "File size: " << file_stat.st_size
+            << std::endl;
+
+  // Sleep for 500ms to wait for the client to listen on the port
+  std::this_thread::sleep_for(std::chrono::milliseconds(500));
+  // Create a connection to the client using a new sockpp::tcp_connector
+  sockpp::tcp_connector data_connector(
+      sockpp::inet_address(sock_.peer_address().address(), client_data_port_));
+  if (!data_connector) {
+    std::cerr << "Error: " << data_connector.last_error_str() << std::endl;
+    close(send_file_fd);
+    return;
+  }
+
+  // Send the file to the client using established data connection
+  std::clog << "[Proto][File] "
+            << "Established data connection to "
+            << data_connector.peer_address() << std::endl;
+
+  // Send file size to the client
+  std::string file_size_str = std::to_string(file_stat.st_size) + "\r\n";
+  // Using sock_ instead of data_sock to send the file size
+  // to prevent collision with the data connection
+  ftp::send_message(&sock_, file_size_str);
+
+  // Send the file to the client
+  off_t offset = 0;
+  size_t remaining_size = file_stat.st_size;
+  while (remaining_size > 0) {
+    const auto sent_bytes = sendfile(data_connector.handle(), send_file_fd,
+                                     &offset, remaining_size);
+    if (sent_bytes < 0) {
+      std::cerr << "Error: " << strerror(errno) << std::endl;
+      break;
+    }
+    // fprintf(stdout, "1. Server sent %d bytes from file's data, offset is now
+    // : %d and remaining data = %d\n", sent_bytes, offset, remain_data);
+    std::clog << "[Proto][File] "
+              << "1. Server sent " << sent_bytes
+              << " bytes from file's data, offset is now: " << offset
+              << " and remaining data: " << remaining_size << std::endl;
+    remaining_size -= sent_bytes;
+    // fprintf(stdout, "2. Server sent %d bytes from file's data, offset is now
+    // : %d and remaining data = %d\n", sent_bytes, offset, remain_data);
+    std::clog << "[Proto][File] "
+              << "2. Server sent " << sent_bytes
+              << " bytes from file's data, offset is now: " << offset
+              << " and remaining data: " << remaining_size << std::endl;
+  }
+
+  // Close the file descriptor
+  close(send_file_fd);
+  // Close the data socket
+  data_connector.close();
 }
 
+// Send file to the client using passive mode
 void ftp::protocol_interpreter_server::send_file_passive(std::string filename) {
-  // Create a new buffer for the file
-  std::shared_ptr<char> file_buf = std::shared_ptr<char>(
-      new char[buffer_size], std::default_delete<char[]>());
-  // Create a connection to the server using a new sockpp::tcp_acceptor
+  // Create a connection to the client using a new sockpp::tcp_acceptor
   sockpp::tcp_acceptor data_acceptor(sock_.address().port() + 1);
   if (!data_acceptor) {
     std::cerr << "Error: " << data_acceptor.last_error_str() << std::endl;
@@ -574,13 +667,15 @@ void ftp::protocol_interpreter_server::send_file_passive(std::string filename) {
       std::cerr << "Error: " << strerror(errno) << std::endl;
       break;
     }
-    // fprintf(stdout, "1. Server sent %d bytes from file's data, offset is now : %d and remaining data = %d\n", sent_bytes, offset, remain_data);
+    // fprintf(stdout, "1. Server sent %d bytes from file's data, offset is now
+    // : %d and remaining data = %d\n", sent_bytes, offset, remain_data);
     std::clog << "[Proto][File] "
               << "1. Server sent " << sent_bytes
               << " bytes from file's data, offset is now: " << offset
               << " and remaining data: " << remaining_size << std::endl;
     remaining_size -= sent_bytes;
-    // fprintf(stdout, "2. Server sent %d bytes from file's data, offset is now : %d and remaining data = %d\n", sent_bytes, offset, remain_data);
+    // fprintf(stdout, "2. Server sent %d bytes from file's data, offset is now
+    // : %d and remaining data = %d\n", sent_bytes, offset, remain_data);
     std::clog << "[Proto][File] "
               << "2. Server sent " << sent_bytes
               << " bytes from file's data, offset is now: " << offset
@@ -597,12 +692,179 @@ void ftp::protocol_interpreter_server::send_file_passive(std::string filename) {
 
 void ftp::protocol_interpreter_server::receive_file_active(
     std::string filename) {
+  // Create a new buffer to receive the file
+  std::shared_ptr<char> file_buf(new char[buffer_size],
+                                 std::default_delete<char[]>());
+  // Sleep for 500ms to wait for the client to listen on the port
+  std::this_thread::sleep_for(std::chrono::milliseconds(500));
+  // Create a connection to the client using a new sockpp::tcp_connector
+  sockpp::tcp_connector data_connector(
+      sockpp::inet_address(sock_.peer_address().address(), client_data_port_));
+  if (!data_connector) {
+    std::cerr << "Error: " << data_connector.last_error_str() << std::endl;
+    return;
+  }
+
+  // Receive the file size from the client
+  const auto file_size_str = ftp::receive_message(&sock_, buf_, buffer_size);
+  // Convert the file size string to an integer
+  const long file_size = std::stoi(file_size_str);
   std::clog << "[Proto][File] "
-            << "Receiving file in active mode not implemented" << std::endl;
+            << "File size to receive: " << file_size << std::endl;
+
+  // Create a new file to save the received file
+  auto const receive_file_fd =
+      fopen((current_working_directory_ / filename).c_str(), "w");
+  if (receive_file_fd == nullptr) {
+    std::cerr << "Error: " << strerror(errno) << std::endl;
+    data_connector.close();
+    return;
+  }
+
+  // Hide cursor
+  indicators::show_console_cursor(false);
+
+  // Prepare the progress bar using indicators
+  indicators::ProgressBar bar{
+      indicators::option::BarWidth{30},
+      indicators::option::ShowElapsedTime{true},
+      indicators::option::ShowRemainingTime{true},
+      indicators::option::PrefixText{"Downloading "},
+      indicators::option::ForegroundColor{indicators::Color::green},
+      indicators::option::ShowPercentage{true},
+      indicators::option::FontStyles{
+          std::vector<indicators::FontStyle>{indicators::FontStyle::bold},
+      },
+  };
+
+  bool successful = true;
+  long remaining_size = file_size;
+  while (remaining_size > 0) {
+    // Receive the file data from the client
+    const ssize_t n = data_connector.read(file_buf.get(), buffer_size);
+    if (n <= 0) {
+      std::cerr << "Error: " << data_connector.last_error_str() << std::endl;
+      successful = false;
+      break;
+    }
+
+    // Write the received data to the file
+    fwrite(file_buf.get(), sizeof(char), n, receive_file_fd);
+    remaining_size -= n;
+
+    // If completed, skip the progress bar
+    if (bar.is_completed()) { // Set the progress bar value
+      continue;
+    }
+    // Otherwise, set the progress bar to the current value
+    // Update the progress bar
+    bar.set_progress(100 - (remaining_size * 100) / file_size);
+  }
+
+  if (successful) {
+    // Completed, set the progress bar to 100%
+    bar.set_option(indicators::option::PrefixText{"Download complete "});
+    bar.mark_as_completed();
+  } else {
+    // Error occurred, set the progress bar to error
+    bar.set_option(indicators::option::PrefixText{"Download failed "});
+    bar.mark_as_completed();
+  }
+
+  // Show cursor
+  indicators::show_console_cursor(true);
+
+  // Close the file
+  fclose(receive_file_fd);
+  // Close the data connection
+  data_connector.close();
 }
 
 void ftp::protocol_interpreter_server::receive_file_passive(
     std::string filename) {
+  // Create a new buffer to receive the file
+  std::shared_ptr<char> file_buf(new char[buffer_size],
+                                 std::default_delete<char[]>());
+  // Create a connection to the client using a new sockpp::tcp_acceptor
+  sockpp::tcp_acceptor data_acceptor(sockpp::inet_address(
+      sock_.address().address(), sock_.address().port() + 1));
+  // Accept a new connection from the client
+  sockpp::tcp_socket data_sock = data_acceptor.accept();
+
+  // Receive the file size from the client
+  const auto file_size_str = ftp::receive_message(&sock_, buf_, buffer_size);
+  // Convert the file size string to an integer
+  const long file_size = std::stoi(file_size_str);
   std::clog << "[Proto][File] "
-            << "Receiving file in passive mode not implemented" << std::endl;
+            << "File size to receive: " << file_size << std::endl;
+
+  // Create a new file to save the received file
+  auto const receive_file_fd =
+      fopen((current_working_directory_ / filename).c_str(), "w");
+  if (receive_file_fd == nullptr) {
+    std::cerr << "Error: " << strerror(errno) << std::endl;
+    data_sock.close();
+    data_acceptor.close();
+    return;
+  }
+
+  // Hide cursor
+  indicators::show_console_cursor(false);
+
+  // Prepare the progress bar using indicators
+  indicators::ProgressBar bar{
+      indicators::option::BarWidth{30},
+      indicators::option::ShowElapsedTime{true},
+      indicators::option::ShowRemainingTime{true},
+      indicators::option::PrefixText{"Downloading "},
+      indicators::option::ForegroundColor{indicators::Color::green},
+      indicators::option::ShowPercentage{true},
+      indicators::option::FontStyles{
+          std::vector<indicators::FontStyle>{indicators::FontStyle::bold},
+      },
+  };
+
+  bool successful = true;
+  long remaining_size = file_size;
+  while (remaining_size > 0) {
+    // Receive the file data from the client
+    const ssize_t n = data_sock.read(file_buf.get(), buffer_size);
+    if (n <= 0) {
+      std::cerr << "Error: " << data_sock.last_error_str() << std::endl;
+      successful = false;
+      break;
+    }
+
+    // Write the received data to the file
+    fwrite(file_buf.get(), sizeof(char), n, receive_file_fd);
+    remaining_size -= n;
+
+    // If completed, skip the progress bar
+    if (bar.is_completed()) { // Set the progress bar value
+      continue;
+    }
+    // Otherwise, set the progress bar to the current value
+    // Update the progress bar
+    bar.set_progress(100 - (remaining_size * 100) / file_size);
+  }
+
+  if (successful) {
+    // Completed, set the progress bar to 100%
+    bar.set_option(indicators::option::PrefixText{"Download complete "});
+    bar.mark_as_completed();
+  } else {
+    // Error occurred, set the progress bar to error
+    bar.set_option(indicators::option::PrefixText{"Download failed "});
+    bar.mark_as_completed();
+  }
+
+  // Show cursor
+  indicators::show_console_cursor(true);
+
+  // Close the file
+  fclose(receive_file_fd);
+  // Close the data connection
+  data_sock.close();
+  // Close the data acceptor
+  data_acceptor.close();
 }

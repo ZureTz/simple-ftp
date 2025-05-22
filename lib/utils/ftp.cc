@@ -1,7 +1,7 @@
 #include <algorithm>
-#include <cstddef>
 #include <iostream>
 #include <regex>
+#include <sstream>
 #include <string>
 #include <utility>
 #include <vector>
@@ -16,35 +16,36 @@ std::string ftp::trim(const std::string &str) {
   return string_copy;
 }
 
+// Split a string into tokens based on whitespace
+std::vector<std::string> ftp::split(const std::string &str,
+                                    const std::vector<std::string> &tokens,
+                                    char delimiter) {
+
+  // Clear the passed tokens vector
+  std::vector<std::string> return_tokens;
+
+  std::string token;
+  std::istringstream token_stream(str);
+  // Using istringstream to split the string by whitespace
+  while (std::getline(token_stream, token, delimiter)) {
+    // Skip empty tokens (consecutive delimiters will produce empty tokens)
+    if (token.empty()) {
+      continue;
+    }
+    return_tokens.push_back(token);
+  }
+
+  return return_tokens;
+}
+
 // Parse the command and return the operation based on the command
 std::pair<ftp::operation, std::string> ftp::parse_command(std::string command) {
-  auto split = [](const std::string &txt, std::vector<std::string> &strs,
-                  char ch) -> size_t {
-    size_t pos = txt.find(ch);
-    size_t initialPos = 0;
-    strs.clear();
-
-    // Decompose statement
-    while (pos != std::string::npos) {
-      strs.push_back(txt.substr(initialPos, pos - initialPos));
-      initialPos = pos + 1;
-
-      pos = txt.find(ch, initialPos);
-    }
-
-    // Add the last one
-    strs.push_back(
-        txt.substr(initialPos, std::min(pos, txt.size()) - initialPos + 1));
-
-    return strs.size();
-  };
-
   // Remove leading and trailing whitespace
   command = ftp::trim(command);
 
   // Separate the command and the argument by space
   std::vector<std::string> tokens;
-  split(command, tokens, ' ');
+  tokens = split(command, tokens, ' ');
 
   if (tokens.empty()) {
     return {ftp::NOOP, ""}; // No operation

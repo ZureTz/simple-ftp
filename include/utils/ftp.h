@@ -2,8 +2,9 @@
 
 #include <string>
 #include <utility>
+#include <vector>
 
-constexpr int buffer_size = 1024;
+constexpr int buffer_size = 1024 * 1024; // 1MB
 
 namespace ftp {
 // FTP operations
@@ -30,6 +31,11 @@ enum operation {
 
 // Trim the leading and trailing whitespace from a string
 std::string trim(const std::string &str);
+
+// Split a string into tokens based on whitespace
+std::vector<std::string> split(const std::string &str,
+                               const std::vector<std::string> &tokens,
+                               char delimiter);
 
 // Parse the command and return the operation
 std::pair<operation, std::string> parse_command(std::string command);
