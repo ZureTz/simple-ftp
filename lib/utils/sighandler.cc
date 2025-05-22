@@ -1,10 +1,9 @@
-#include "sighandler.h"
-
+#include <csignal>
+#include <cstdio>
+#include <cstdlib>
 #include <iostream>
-#include <signal.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
+
+#include "utils/sighandler.h"
 
 struct sigaction sig_int_handler;
 

@@ -52,13 +52,13 @@ private:
   // Send password to the server, wait for response
   void do_pass(std::string password);
 
-  // Todo: Specify active or passive mode
+  // Specify active or passive mode
   // Send PORT command to the server, wait for response
   void do_port(std::string port);
   // Send PASV command to the server, wait for response
   void do_pasv();
 
-  // Todo: implement the FTP commands
+  // implement the FTP commands
   // Retrieve file from the server, save it to the local file system
   // And wait for response
   void do_retr(std::string filename);

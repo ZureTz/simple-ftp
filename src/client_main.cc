@@ -3,10 +3,9 @@
 #include <string>
 
 #include <argparse/argparse.hpp>
-#include <sockpp/tcp_connector.h>
 
 #include "ftp_client.h"
-#include "sighandler.h"
+#include "utils/sighandler.h"
 
 // ftp client pointer for the signal handler
 ftp::client *ftp_client = nullptr;
@@ -37,7 +36,8 @@ int main(int argc, char const *argv[]) {
 
   const uint16_t port = program.get<int>("--port");
   const std::string host = program.get<std::string>("--host");
-  std::clog<< "[Main] " << "Connecting to " << host << ":" << port << std::endl;
+  std::clog << "[Main] " << "Connecting to " << host << ":" << port
+            << std::endl;
 
   // Init client
   ftp::client client(host, port);
