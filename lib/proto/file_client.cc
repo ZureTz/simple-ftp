@@ -219,6 +219,9 @@ void ftp::protocol_interpreter_client::receive_file_active(
   std::clog << "[Proto][File] "
             << "File size to receive: " << file_size << std::endl;
 
+  // Modify filename to have filename only, without "/" and all text before it
+  filename = filename.substr(filename.find_last_of("/") + 1);
+
   // Create a new file to save the received file
   auto const receive_file_fd = fopen(filename.c_str(), "w");
   if (receive_file_fd == nullptr) {
@@ -315,6 +318,9 @@ void ftp::protocol_interpreter_client::receive_file_passive(
   const long file_size = std::stoi(file_size_str);
   std::clog << "[Proto][File] "
             << "File size to receive: " << file_size << std::endl;
+
+  // Modify filename to have filename only, without "/" and all text before it
+  filename = filename.substr(filename.find_last_of("/") + 1);
 
   // Create a new file to save the received file
   auto const receive_file_fd = fopen(filename.c_str(), "w");

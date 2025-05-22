@@ -5,9 +5,9 @@
 #include <cstdlib>
 #include <filesystem>
 #include <memory>
-#include <sockpp/tcp_acceptor.h>
 #include <string>
 
+#include <sockpp/tcp_acceptor.h>
 #include <sockpp/tcp_connector.h>
 #include <sockpp/tcp_socket.h>
 
@@ -70,7 +70,7 @@ private:
   // Change working directory, wait for response
   void do_cwd(std::string directory);
   // Change to parent directory, wait for response
-  void do_cdup(std::string directory);
+  void do_cdup();
   // Print working directory, wait for response
   void do_pwd();
   // Make directory, wait for response
@@ -124,11 +124,12 @@ private:
   // States of the protocol interpreter
   // 0: Not logged in
   // 1: Logged in
-  // 2: Handshake passive mode or active mode
+  // 2: Handshake passive mode or active mode (optional)
   // 3: with Passive mode | Active mode already established:
-  //      | Establish data connection based on the mode
-  //      | File transfer mode
-  //      | File transfer done
+  //        | Establish data connection based on the mode
+  //        | File transfer mode
+  //        | File transfer done
+  //    or : do commands that not require data connection
   //    loop until the user quits
 
   // Current working directory
@@ -145,6 +146,9 @@ private:
   bool is_passive_mode_;
   // Client listening port in active mode
   uint16_t client_data_port_;
+
+  // A string for renaming files
+  std::string rename_oldname_path_;
 
   // Check username and password
   void do_user(std::string username);
@@ -164,7 +168,7 @@ private:
   // Change current working directory, send response to the client
   void do_cwd(std::string directory);
   // Change to parent directory, send response to the client
-  void do_cdup(std::string directory);
+  void do_cdup();
   // Send the current working directory name to the client
   void do_pwd();
   // Make directory and send request to the client

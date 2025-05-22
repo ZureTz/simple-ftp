@@ -30,7 +30,8 @@ void ftp::protocol_interpreter_client::run() {
   std::clog << "[Proto] " << "Welcome to the FTP client!" << std::endl;
 
   std::string input;
-  while (running_ && (std::cout << "ftp> ") && std::getline(std::cin, input)) {
+  while (running_ && (std::cout << ftp_default_prompt) &&
+         std::getline(std::cin, input)) {
     // Check if the input contains only whitespace
     if (input.find_first_not_of(" \t\n") == std::string::npos) {
       continue; // Skip empty input
@@ -94,7 +95,7 @@ void ftp::protocol_interpreter_client::run() {
       continue;
     }
     if (operation == ftp::CDUP) {
-      do_cdup(argument);
+      do_cdup();
       continue;
     }
     if (operation == ftp::PWD) {
@@ -323,22 +324,174 @@ void ftp::protocol_interpreter_client::do_list() {
             << std::endl;
   std::cout << response << std::endl;
 }
+
 // Change working directory, wait for response
-void ftp::protocol_interpreter_client::do_cwd(std::string directory) {}
+void ftp::protocol_interpreter_client::do_cwd(std::string directory) {
+  // Send CWD command to the server
+  const std::string command = "CWD " + directory;
+  ftp::send_message(connector_, command);
+  // Wait for response from the server
+  const auto response = ftp::receive_message(connector_, buf_, buffer_size);
+  // If response is not 200, return
+  if (response.find("200") == std::string::npos) {
+    // Show user the response
+    std::cout << response << std::endl;
+    return;
+  }
+  // Otherwise, print the response
+  std::clog << "[Proto] " << "Changed working directory to: " << directory
+            << std::endl;
+  std::cout << response << std::endl;
+}
+
 // Change to parent directory, wait for response
-void ftp::protocol_interpreter_client::do_cdup(std::string directory) {}
+void ftp::protocol_interpreter_client::do_cdup() {
+  // Use the CWD command to change to parent directory
+  do_cwd("..");
+}
 // Print working directory, wait for response
-void ftp::protocol_interpreter_client::do_pwd() {}
+void ftp::protocol_interpreter_client::do_pwd() {
+  // Send PWD command to the server
+  const std::string command = "PWD";
+  ftp::send_message(connector_, command);
+  // Wait for response from the server
+  const auto response = ftp::receive_message(connector_, buf_, buffer_size);
+  // If response is not 200, return
+  if (response.find("200") == std::string::npos) {
+    // Show user the response
+    std::cout << response << std::endl;
+    return;
+  }
+  // Otherwise, print the response
+  std::clog << "[Proto] " << "Current working directory: " << response
+            << std::endl;
+  std::cout << response << std::endl;
+}
+
 // Make directory, wait for response
-void ftp::protocol_interpreter_client::do_mkd(std::string directory) {}
+void ftp::protocol_interpreter_client::do_mkd(std::string directory) {
+  // Send MKD command to the server
+  const std::string command = "MKD " + directory;
+  ftp::send_message(connector_, command);
+  // Wait for response from the server
+  const auto response = ftp::receive_message(connector_, buf_, buffer_size);
+  // If response is not 200, return
+  if (response.find("200") == std::string::npos) {
+    // Show user the response
+    std::cout << response << std::endl;
+    return;
+  }
+  // Otherwise, print the response
+  std::clog << "[Proto] " << "Created directory: " << directory << std::endl;
+  std::cout << response << std::endl;
+}
+
 // Remove directory, wait for response
-void ftp::protocol_interpreter_client::do_rmd(std::string directory) {}
+void ftp::protocol_interpreter_client::do_rmd(std::string directory) {
+  // Send RMD command to the server
+  const std::string command = "RMD " + directory;
+  ftp::send_message(connector_, command);
+  // Wait for response from the server
+  const auto response = ftp::receive_message(connector_, buf_, buffer_size);
+  // If response is not 200, return
+  if (response.find("200") == std::string::npos) {
+    // Show user the response
+    std::cout << response << std::endl;
+    return;
+  }
+  // Otherwise, print the response
+  std::clog << "[Proto] " << "Removed directory: " << directory << std::endl;
+  std::cout << response << std::endl;
+}
+
 // Delete file, wait for response
-void ftp::protocol_interpreter_client::do_dele(std::string filename) {}
+void ftp::protocol_interpreter_client::do_dele(std::string filename) {
+  // Send DELE command to the server
+  const std::string command = "DELE " + filename;
+  ftp::send_message(connector_, command);
+  // Wait for response from the server
+  const auto response = ftp::receive_message(connector_, buf_, buffer_size);
+  // If response is not 200, return
+  if (response.find("200") == std::string::npos) {
+    // Show user the response
+    std::cout << response << std::endl;
+    return;
+  }
+  // Otherwise, print the response
+  std::clog << "[Proto] " << "Deleted file: " << filename << std::endl;
+  std::cout << response << std::endl;
+}
+
 // Rename from, wait for response
-void ftp::protocol_interpreter_client::do_rnfr(std::string oldname) {}
+void ftp::protocol_interpreter_client::do_rnfr(std::string oldname) {
+  // Send RNFR command to the server
+  const std::string command = "RNFR " + oldname;
+  ftp::send_message(connector_, command);
+  // Wait for response from the server
+  const auto response = ftp::receive_message(connector_, buf_, buffer_size);
+  // If response is not 200, return
+  if (response.find("200") == std::string::npos) {
+    // Show user the response
+    std::cout << response << std::endl;
+    return;
+  }
+  // Otherwise, print the response
+  std::clog << "[Proto] " << "Renamed from: " << oldname << std::endl;
+  std::cout << response << std::endl;
+}
+
 // Rename to, wait for response
-void ftp::protocol_interpreter_client::do_rnto(std::string newname) {}
+void ftp::protocol_interpreter_client::do_rnto(std::string newname) {
+  // Send RNTO command to the server
+  const std::string command = "RNTO " + newname;
+  ftp::send_message(connector_, command);
+  // Wait for response from the server
+  const auto response = ftp::receive_message(connector_, buf_, buffer_size);
+  // If response is not 200, return
+  if (response.find("200") == std::string::npos) {
+    // Show user the response
+    std::cout << response << std::endl;
+    return;
+  }
+  // Otherwise, print the response
+  std::clog << "[Proto] " << "Renamed to: " << newname << std::endl;
+  std::cout << response << std::endl;
+}
 
 // Help command, runs locally without server
-void ftp::protocol_interpreter_client::do_help() {}
+void ftp::protocol_interpreter_client::do_help() {
+  // Print the help message
+  std::cout << "\n===== FTP Client Help =====\n";
+  std::cout << "Available commands:\n\n";
+
+  // Authentication commands
+  std::cout << "USER <username>  - Specify user for authentication\n";
+  std::cout << "PASS <password>  - Specify password for authentication\n";
+
+  // Connection mode commands
+  std::cout << "PORT [<port>]    - Use active mode with optional port number\n";
+  std::cout << "PASV             - Use passive mode (default)\n";
+
+  // File transfer commands
+  std::cout << "RETR <filename>  - Download a file from server\n";
+  std::cout << "STOR <filename>  - Upload a file to server\n";
+  std::cout << "LIST             - List files in current directory\n";
+
+  // Directory navigation commands
+  std::cout << "CWD <directory>  - Change working directory\n";
+  std::cout << "CDUP             - Change to parent directory\n";
+  std::cout << "PWD              - Print working directory\n";
+
+  // File management commands
+  std::cout << "MKD <directory>  - Create a directory\n";
+  std::cout << "RMD <directory>  - Remove a directory\n";
+  std::cout << "DELE <filename>  - Delete a file\n";
+  std::cout << "RNFR <oldname>   - Rename from (specify old filename)\n";
+  std::cout << "RNTO <newname>   - Rename to (specify new filename)\n";
+
+  // Other commands
+  std::cout << "QUIT             - Exit the FTP client\n";
+  std::cout << "HELP             - Show this help message\n";
+
+  std::cout << "\n=========================\n";
+}

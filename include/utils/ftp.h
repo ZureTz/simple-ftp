@@ -4,9 +4,13 @@
 #include <utility>
 #include <vector>
 
+namespace ftp {
 constexpr int buffer_size = 1024 * 1024; // 1MB
 
-namespace ftp {
+// Use Green Bold text for the prompt
+// And arrow using
+const std::string ftp_default_prompt = "\033[32;1mftp>\033[34m$\033[0m \033[0m";
+
 // FTP operations
 enum operation {
   USER = 0, // User name
