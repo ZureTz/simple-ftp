@@ -60,8 +60,8 @@ void ftp::protocol_interpreter_server::run() {
     std::clog << "[Proto] " << "Parsed command: " << operation << " "
               << argument << std::endl;
 
-    // Quit command
-    if (operation == ftp::QUIT) {
+    // Quit command or invalid command
+    if (operation == ftp::QUIT || operation == ftp::NOOP) {
       std::clog << "[Proto] " << "Quitting..." << std::endl;
       running_ = false;
       continue;
