@@ -1,3 +1,9 @@
+#include <fstream>
+#include <json/json.h>
+#include <string>
+#include <utility>
+#include <vector>
+
 #include "proto/proto_interpreter.h"
 #include "utils/ftp.h"
 #include "utils/io.h"
@@ -14,8 +20,27 @@ ftp::protocol_interpreter_server::protocol_interpreter_server(
   buf_ = std::shared_ptr<char>(new char[buffer_size],
                                std::default_delete<char[]>());
 
-  // Set the current working directory to the home directory
-  current_working_directory_.assign(getenv("HOME"));
+  // Read config.json to get the username and password also working directory
+  Json::Value root;
+  Json::CharReaderBuilder builder;
+  std::ifstream config_file("config.json", std::ifstream::binary);
+
+  std::string errors;
+  bool parsing_successful =
+      Json::parseFromStream(builder, config_file, &root, &errors);
+  if (!parsing_successful) {
+    std::cerr << "[Proto] " << "Failed to parse config.json: " << errors
+              << std::endl;
+    throw std::runtime_error("Failed to parse config.json");
+  }
+
+  // Set the current working directory based on config.json
+  current_working_directory_ = root["workingDirectory"].asString();
+  // If not set, use the home directory
+  if (current_working_directory_.empty()) {
+    current_working_directory_ = getenv("HOME");
+  }
+
   // Log the current working directory
   std::clog << "[Proto] " << "Current working directory: "
             << current_working_directory_.string() << std::endl;
@@ -30,12 +55,32 @@ ftp::protocol_interpreter_server::protocol_interpreter_server(
   // Debug only
   // is_logged_in_ = true;
 
-  // Set the username and password from environment variables
-  username_ = getenv("FTP_USERNAME") ? getenv("FTP_USERNAME") : "anonymous";
-  password_ = getenv("FTP_PASSWORD") ? getenv("FTP_PASSWORD") : "anonymous";
-  // Debug current username and password
-  std::clog << "[Proto] " << "Username: " << username_ << std::endl;
-  std::clog << "[Proto] " << "Password: " << password_ << std::endl;
+  // Set the username and password from config.json
+  const auto users_list = root["users"];
+  if (!users_list.isArray() || users_list.empty()) {
+    std::cerr << "[Proto] " << "No users found in config.json" << std::endl;
+    throw std::runtime_error("No users found in config.json");
+  }
+
+  // Foreach through the users list
+  for (const auto &user : users_list) {
+    // Get the username and password
+    std::string username = user["username"].asString();
+    std::string password = user["password"].asString();
+
+    // Check if the username and password are not empty
+    if (username.empty() || password.empty()) {
+      std::cerr << "[Proto] " << "Username or password is empty" << std::endl;
+      throw std::runtime_error("Username or password is empty");
+    }
+
+    // Add the username and password to the user_pass_map_
+    user_pass_map_[username] = password;
+  }
+
+  // Debug usernames and passwords
+  // std::clog << "[Proto] " << "Username: " << username_ << std::endl;
+  // std::clog << "[Proto] " << "Password: " << password_ << std::endl;
 
   // Set the default to passive mode
   is_passive_mode_ = true;
@@ -194,7 +239,7 @@ void ftp::protocol_interpreter_server::do_user(std::string username) {
   }
 
   // Check if the username is correct
-  if (username != username_) {
+  if (user_pass_map_.find(username) == user_pass_map_.end()) {
     std::clog << "[Proto] " << "Invalid username" << std::endl;
     const std::string response = "530 Not logged in. Invalid username\r\n";
     ftp::send_message(&sock_, response);
@@ -203,6 +248,7 @@ void ftp::protocol_interpreter_server::do_user(std::string username) {
 
   // Username is valid
   is_username_valid_ = true;
+  current_username_ = username;
   std::clog << "[Proto] " << "Valid username" << std::endl;
   const std::string response = "331 User name okay, need password.\r\n";
   ftp::send_message(&sock_, response);
@@ -226,7 +272,7 @@ void ftp::protocol_interpreter_server::do_pass(std::string password) {
   }
 
   // Check if the password is correct
-  if (password != password_) {
+  if (user_pass_map_[current_username_] != password) {
     std::clog << "[Proto] " << "Invalid password" << std::endl;
     const std::string response = "530 Not logged in. Invalid password\r\n";
     ftp::send_message(&sock_, response);

@@ -3,6 +3,7 @@
     "argparse",
     "autoupdate",
     "includedirs",
+    "jsoncpp",
     "rnfr",
     "rnto",
     "sockpp"

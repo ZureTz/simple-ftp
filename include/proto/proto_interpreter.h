@@ -6,6 +6,7 @@
 #include <filesystem>
 #include <memory>
 #include <string>
+#include <unordered_map>
 
 #include <sockpp/tcp_acceptor.h>
 #include <sockpp/tcp_connector.h>
@@ -139,8 +140,9 @@ private:
   bool is_username_valid_;
   bool is_logged_in_;
 
-  std::string username_;
-  std::string password_;
+  // Hashmap to store username and password
+  std::string current_username_;
+  std::unordered_map<std::string, std::string> user_pass_map_;
 
   // Default to passive mode true (client may be behind a NAT)
   bool is_passive_mode_;

@@ -1,0 +1,21 @@
+{
+  "workingDirectory": "/path/to/your/working/directory",
+  "users": [
+    {
+      "username": "exampleUser",
+      "password": "examplePassword"
+    },
+    {
+      "username": "anotherUser",
+      "password": "anotherPassword"
+    },
+    {
+      "username": "thirdUser",
+      "password": "thirdPassword"
+    },
+    {
+      "username": "// Add more users as needed",
+      "password": "// Add more users as needed"
+    }
+  ]
+}

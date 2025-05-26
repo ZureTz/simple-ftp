@@ -30,3 +30,6 @@ build/
 
 ### Received files ###
 received/
+
+### config json ###
+config.json
