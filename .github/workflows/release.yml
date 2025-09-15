@@ -1,6 +1,5 @@
 # workflow name
-name: Generate release-artifacts
-
+name: Release
 # on events
 on:
   release:
@@ -13,7 +12,7 @@ jobs:
     name: Generate cross-platform builds
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout the repository
+      - name: Check out the repository
         uses: actions/checkout@v2
       - name: Generate build files
         uses: thatisuday/go-cross-build@v1
